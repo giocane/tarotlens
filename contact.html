@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Contact — Arcana, tarots personnalisés</title>
+    <meta name="description" content="Une question, un projet sur-mesure ? Écrivez-nous." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="page.css" />
+</head>
+<body>
+    <div class="ribbon"><div class="ribbon-inner"><span>✦ Livraison offerte dès 49&nbsp;€ &amp; un tirage en ligne offert pour toute première commande<a class="ribbon-link" href="boutique.html">Découvrir<span class="chevron">›</span></a></span></div></div>
+
+    <header class="nav" id="nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo" aria-label="Arcana, accueil">Arcana</a>
+            <button class="nav-burger" id="navBurger" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
+            <nav class="nav-links" id="navLinks" aria-label="Navigation principale">
+                <a href="boutique.html">Boutique</a>
+                <a href="index.html#collections">Collections</a>
+                <a href="personnaliser.html">Personnaliser</a>
+                <a href="index.html#lectures">Lectures</a>
+                <a href="apropos.html">À propos</a>
+            </nav>
+            <div class="nav-actions">
+                <button class="nav-icon" aria-label="Rechercher"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="m21 21-4.3-4.3M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"/></svg></button>
+                <button class="nav-icon" aria-label="Panier"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 8h12l-1 12H7L6 8Zm3 0a3 3 0 0 1 6 0"/></svg><span class="nav-badge">0</span></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        <nav class="crumb" aria-label="Fil d'ariane"><a href="index.html">Accueil</a><span>/</span><span aria-current="page">Contact</span></nav>
+
+        <header class="page-hero theme-orange">
+            <p class="tile-eyebrow">On vous répond sous 24 h</p>
+            <h1 class="tile-title display">Parlons-en</h1>
+            <p class="tile-subhead">Une question, un projet sur-mesure, une commande spéciale&nbsp;? Écrivez-nous.</p>
+        </header>
+
+        <div class="contact-grid">
+            <form class="contact-form" onsubmit="event.preventDefault(); this.reset(); document.getElementById('sent').hidden=false;">
+                <div class="form-row two">
+                    <div class="form-row"><label for="fn">Prénom</label><input id="fn" class="field" required></div>
+                    <div class="form-row"><label for="ln">Nom</label><input id="ln" class="field" required></div>
+                </div>
+                <div class="form-row"><label for="em">E-mail</label><input id="em" type="email" class="field" required></div>
+                <div class="form-row"><label for="su">Sujet</label>
+                    <select id="su" class="field">
+                        <option>Projet sur-mesure</option>
+                        <option>Question sur une commande</option>
+                        <option>Service après-vente</option>
+                        <option>Partenariat / presse</option>
+                        <option>Autre</option>
+                    </select>
+                </div>
+                <div class="form-row"><label for="msg">Message</label><textarea id="msg" class="field" required></textarea></div>
+                <button class="btn btn-primary" type="submit">Envoyer le message</button>
+                <p id="sent" hidden style="margin-top:14px;color:var(--orange);font-weight:600">✦ Merci&nbsp;! Votre message a bien été envoyé.</p>
+            </form>
+
+            <aside class="contact-aside">
+                <h3>Par e-mail</h3>
+                <p><a href="mailto:bonjour@arcana-tarots.fr">bonjour@arcana-tarots.fr</a></p>
+                <h3>Par téléphone</h3>
+                <p>Du lundi au vendredi, 10 h – 18 h<br><a href="tel:+33100000000">01 00 00 00 00</a></p>
+                <h3>L'atelier</h3>
+                <p>12 rue des Étoiles<br>75000 Paris, France</p>
+                <h3>Besoin d'aide rapide&nbsp;?</h3>
+                <p>Consultez notre <a href="aide.html#faq">FAQ</a> ou le <a href="aide.html#suivi">suivi de commande</a>.</p>
+            </aside>
+        </div>
+    </main>
+
+    <footer class="footer"><div class="footer-inner">
+        <nav class="footer-cols" aria-label="Liens du pied de page">
+            <div class="footer-col"><h4>Boutique</h4><a href="boutique.html?cat=tarot">Tous les tarots</a><a href="boutique.html?cat=oracle">Oracles</a><a href="boutique.html?cat=accessory">Accessoires</a><a href="boutique.html?cat=gift">Cartes cadeaux</a></div>
+            <div class="footer-col"><h4>Sur-mesure</h4><a href="personnaliser.html">Créer un jeu</a><a href="personnaliser.html#exemples">Exemples</a><a href="personnaliser.html#tarifs">Tarifs</a><a href="personnaliser.html#delais">Délais</a></div>
+            <div class="footer-col"><h4>La maison</h4><a href="apropos.html">Notre histoire</a><a href="apropos.html#atelier">L'atelier</a><a href="apropos.html#journal">Journal</a><a href="contact.html">Contact</a></div>
+            <div class="footer-col"><h4>Aide</h4><a href="aide.html#livraison">Livraison</a><a href="aide.html#retours">Retours</a><a href="aide.html#faq">FAQ</a><a href="aide.html#suivi">Suivi de commande</a></div>
+            <div class="footer-col footer-news"><h4>Restons connectés</h4><p>Tirages, nouveautés et offres dans votre boîte mail.</p><form class="news-form" onsubmit="return false;"><input type="email" placeholder="Votre e-mail" aria-label="Votre e-mail" /><button class="btn btn-primary sm" type="submit">OK</button></form></div>
+        </nav>
+        <div class="footer-legal"><span class="footer-logo display">Arcana</span><p>© 2026 Arcana — Tarots personnalisés. Fait main, avec intention. <a href="legal.html#mentions">Mentions légales</a> · <a href="legal.html#confidentialite">Confidentialité</a> · <a href="legal.html#cgv">CGV</a></p></div>
+    </div></footer>
+    <script src="cart.js"></script>
+    <script src="page.js"></script>
+</body>
+</html>

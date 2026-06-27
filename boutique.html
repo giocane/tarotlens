@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Boutique — Arcana, tarots personnalisés</title>
+    <meta name="description" content="Tous nos jeux de tarot et oracles, à personnaliser. Filtrez par style, format et budget." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="shop.css" />
+</head>
+<body>
+
+    <!-- RIBBON -->
+    <div class="ribbon">
+        <div class="ribbon-inner">
+            <span>✦ Livraison offerte dès 49&nbsp;€ &amp; un tirage en ligne offert pour toute première commande<a class="ribbon-link" href="personnaliser.html">Découvrir<span class="chevron">›</span></a></span>
+        </div>
+    </div>
+
+    <!-- HEADER / NAV -->
+    <header class="nav" id="nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo" aria-label="Arcana, accueil">Arcana</a>
+            <button class="nav-burger" id="navBurger" aria-label="Menu" aria-expanded="false">
+                <span></span><span></span>
+            </button>
+            <nav class="nav-links" id="navLinks" aria-label="Navigation principale">
+                <a href="boutique.html" class="active">Boutique</a>
+                <a href="index.html#collections">Collections</a>
+                <a href="personnaliser.html">Personnaliser</a>
+                <a href="index.html#lectures">Lectures</a>
+                <a href="apropos.html">À propos</a>
+            </nav>
+            <div class="nav-actions">
+                <button class="nav-icon" aria-label="Rechercher">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="m21 21-4.3-4.3M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"/></svg>
+                </button>
+                <button class="nav-icon" aria-label="Panier">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 8h12l-1 12H7L6 8Zm3 0a3 3 0 0 1 6 0"/></svg>
+                    <span class="nav-badge" id="cartBadge">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="shop">
+        <!-- Fil d'ariane -->
+        <nav class="crumb" aria-label="Fil d'ariane">
+            <a href="index.html">Accueil</a><span>/</span><span aria-current="page">Boutique</span>
+        </nav>
+
+        <!-- Bannière boutique -->
+        <header class="shop-hero theme-cream">
+            <span class="sunburst" aria-hidden="true"></span>
+            <p class="tile-eyebrow">42 créations</p>
+            <h1 class="tile-title display">La boutique</h1>
+            <p class="tile-subhead">Des tarots et oracles à adopter tels quels… ou à personnaliser entièrement.</p>
+        </header>
+
+        <!-- Puces de catégories -->
+        <div class="chips" id="chips" role="tablist" aria-label="Catégories">
+            <button class="chip active" data-cat="all" role="tab" aria-selected="true">Tout</button>
+            <button class="chip" data-cat="tarot" role="tab">Tarots</button>
+            <button class="chip" data-cat="oracle" role="tab">Oracles</button>
+            <button class="chip" data-cat="custom" role="tab">Sur-mesure</button>
+            <button class="chip" data-cat="accessory" role="tab">Accessoires</button>
+            <button class="chip" data-cat="gift" role="tab">Cartes cadeaux</button>
+        </div>
+
+        <div class="shop-body">
+            <!-- Filtres latéraux collants -->
+            <aside class="filters" aria-label="Filtres">
+                <button class="filters-toggle" id="filtersToggle" aria-expanded="false">Filtrer &amp; trier ▾</button>
+
+                <div class="filters-panel" id="filtersPanel">
+                    <div class="filter-group">
+                        <h3>Ambiance</h3>
+                        <label><input type="checkbox" data-filter="ambiance" value="pastel" checked> Pastel</label>
+                        <label><input type="checkbox" data-filter="ambiance" value="boho" checked> Bohème</label>
+                        <label><input type="checkbox" data-filter="ambiance" value="night" checked> Or sur nuit</label>
+                        <label><input type="checkbox" data-filter="ambiance" value="sun" checked> Solaire</label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h3>Format</h3>
+                        <label><input type="checkbox" data-filter="format" value="78" checked> 78 lames</label>
+                        <label><input type="checkbox" data-filter="format" value="44" checked> 44 cartes (oracle)</label>
+                        <label><input type="checkbox" data-filter="format" value="collector" checked> Édition collector</label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h3>Budget</h3>
+                        <input type="range" min="29" max="89" value="89" id="priceRange" />
+                        <div class="price-out">Jusqu'à <strong id="priceVal">89 €</strong></div>
+                    </div>
+
+                    <button class="btn btn-ghost sm filter-reset">Réinitialiser</button>
+                </div>
+            </aside>
+
+            <!-- Grille produits -->
+            <section class="catalog">
+                <div class="toolbar">
+                    <span class="count"><strong id="count">9</strong> créations</span>
+                    <label class="sort">
+                        Trier&nbsp;:
+                        <select id="sort">
+                            <option value="featured">À la une</option>
+                            <option value="new">Nouveautés</option>
+                            <option value="price-asc">Prix croissant</option>
+                            <option value="price-desc">Prix décroissant</option>
+                            <option value="rating">Mieux notés</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="grid" id="grid"><!-- injecté par shop.js --></div>
+
+                <div class="load-more-wrap">
+                    <button class="btn btn-dark" id="loadMore">Charger plus de créations</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <nav class="footer-cols" aria-label="Liens du pied de page">
+                <div class="footer-col">
+                    <h4>Boutique</h4>
+                    <a href="boutique.html?cat=tarot">Tous les tarots</a><a href="boutique.html?cat=oracle">Oracles</a><a href="boutique.html?cat=accessory">Accessoires</a><a href="boutique.html?cat=gift">Cartes cadeaux</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Sur-mesure</h4>
+                    <a href="personnaliser.html">Créer un jeu</a><a href="personnaliser.html#exemples">Exemples</a><a href="personnaliser.html#tarifs">Tarifs</a><a href="personnaliser.html#delais">Délais</a>
+                </div>
+                <div class="footer-col">
+                    <h4>La maison</h4>
+                    <a href="apropos.html">Notre histoire</a><a href="apropos.html#atelier">L'atelier</a><a href="apropos.html#journal">Journal</a><a href="contact.html">Contact</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Aide</h4>
+                    <a href="aide.html#livraison">Livraison</a><a href="aide.html#retours">Retours</a><a href="aide.html#faq">FAQ</a><a href="aide.html#suivi">Suivi de commande</a>
+                </div>
+                <div class="footer-col footer-news">
+                    <h4>Restons connectés</h4>
+                    <p>Tirages, nouveautés et offres dans votre boîte mail.</p>
+                    <form class="news-form" onsubmit="return false;">
+                        <input type="email" placeholder="Votre e-mail" aria-label="Votre e-mail" />
+                        <button class="btn btn-primary sm" type="submit">OK</button>
+                    </form>
+                </div>
+            </nav>
+            <div class="footer-legal">
+                <span class="footer-logo display">Arcana</span>
+                <p>© 2026 Arcana — Tarots personnalisés. Fait main, avec intention. <a href="legal.html#mentions">Mentions légales</a> · <a href="legal.html#confidentialite">Confidentialité</a> · <a href="legal.html#cgv">CGV</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODALE APERÇU RAPIDE -->
+    <div class="qv" id="quickView" aria-hidden="true">
+        <div class="qv-scrim" data-qv-close></div>
+        <div class="qv-dialog" role="dialog" aria-modal="true" aria-labelledby="qvTitle">
+            <button class="qv-close" data-qv-close aria-label="Fermer">×</button>
+            <div class="qv-media" id="qvMedia"></div>
+            <div class="qv-info">
+                <p class="tile-eyebrow" id="qvTag">Tarot · Pastel</p>
+                <h2 class="display" id="qvTitle">Le Tarot Solaire</h2>
+                <div class="qv-rating" id="qvRating">★★★★★ <span>(128 avis)</span></div>
+                <p class="qv-desc">78 lames dorées à chaud sur papier coton 350&nbsp;g, livrées dans un coffret rigide. Personnalisation possible : prénoms, symboles et palette.</p>
+                <div class="qv-price" id="qvPrice">59 €</div>
+                <div class="qv-ctas">
+                    <button class="btn btn-primary" id="qvAdd">Ajouter au panier</button>
+                    <a class="btn btn-ghost" href="index.html#personnaliser">Personnaliser</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST ajout panier -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="data.js"></script>
+    <script src="cart.js"></script>
+    <script src="shop.js"></script>
+</body>
+</html>
