@@ -3,236 +3,296 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Arcana — Tarots personnalisés</title>
-    <meta name="description" content="Des jeux de tarot dessinés sur-mesure, rien que pour vous. Choisissez vos arcanes, vos couleurs, votre histoire." />
+    <title>TarotLens</title>
+    <meta name="description" content="Too Much Tarot, Has Been Tarot, Too Much Lenormand — Pre-order now." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <script src="theme.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-    <!-- ========== RIBBON (barre d'annonce, comme Apple) ========== -->
-    <div class="ribbon">
-        <div class="ribbon-inner">
-            <span>✦ Livraison offerte dès 49&nbsp;€ &amp; un tirage en ligne offert pour toute première commande<a class="ribbon-link" href="#boutique">Découvrir<span class="chevron">›</span></a></span>
-        </div>
-    </div>
-
-    <!-- ========== HEADER / NAV (calqué sur le globalnav Apple) ========== -->
-    <header class="nav" id="nav">
-        <div class="nav-inner">
-            <a href="index.html" class="nav-logo" aria-label="Arcana, accueil">Arcana</a>
-
+<!-- ═══════════════════════════════════ NAV ═══════════════════════════════════ -->
+<header class="nav" id="nav">
+    <div class="nav-inner">
+        <a href="index.html" class="nav-logo" aria-label="TarotLens, accueil">TAROTLENS</a>
+        <div class="nav-row">
             <button class="nav-burger" id="navBurger" aria-label="Menu" aria-expanded="false">
                 <span></span><span></span>
             </button>
-
             <nav class="nav-links" id="navLinks" aria-label="Navigation principale">
-                <a href="boutique.html">Boutique</a>
-                <a href="#collections">Collections</a>
-                <a href="personnaliser.html">Personnaliser</a>
-                <a href="#lectures">Lectures</a>
-                <a href="apropos.html">À propos</a>
+                <a href="#decks">LES DECKS</a>
+                <a href="#accessoires">ACCESSOIRES</a>
+                <a href="contact.html">CONTACT</a>
             </nav>
+            <button class="nav-icon" aria-label="Panier">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 8h12l-1 12H7L6 8Zm3 0a3 3 0 0 1 6 0"/></svg>
+                <span class="nav-badge">0</span>
+            </button>
+        </div>
+    </div>
+</header>
 
-            <div class="nav-actions">
-                <button class="nav-icon" aria-label="Rechercher">
-                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="m21 21-4.3-4.3M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"/></svg>
-                </button>
-                <button class="nav-icon" aria-label="Panier">
-                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 8h12l-1 12H7L6 8Zm3 0a3 3 0 0 1 6 0"/></svg>
-                    <span class="nav-badge">0</span>
-                </button>
+<main>
+
+<!-- ═══════════════════════════════ HERO 1 — NEW HAS BEEN TAROT ═══════════════ -->
+<section class="hero-feature">
+    <div class="hero-copy">
+        <h1 class="hero-title">NEW<br>HAS BEEN<br>TAROT</h1>
+        <p class="hero-sub">87 Cartes pleine de nostalgie</p>
+        <a href="#detail-hasbeen" class="btn btn-orange">PRE ORDER HERE</a>
+    </div>
+    <div class="hero-media">
+        <!-- Remplacer par <img src="images/hasbeen-hero.jpg" alt="Has Been Tarot"> -->
+        <div class="hero-placeholder">✺</div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ HERO 2 — NEW TOO MUCH LENORMAND ═══════════ -->
+<section class="hero-feature">
+    <div class="hero-copy">
+        <h2 class="hero-title magenta">NEW<br>TOO MUCH<br>LENORMAND</h2>
+        <p class="hero-sub">46 Cartes, toujours plus kitsh</p>
+        <a href="#detail-lenormand" class="btn btn-orange">PRE ORDER HERE</a>
+    </div>
+    <div class="hero-media">
+        <!-- Remplacer par <img src="images/lenormand-hero.jpg" alt="Too Much Lenormand"> -->
+        <div class="hero-placeholder">❉</div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ HERO 3 — TOO MUCH TAROT ════════════════════ -->
+<section class="hero-feature rev">
+    <div class="hero-copy">
+        <h2 class="hero-title">TOO MUCH<br>TAROT</h2>
+        <p class="hero-sub">If it's too much, add more !</p>
+        <a href="#detail-toomuch" class="btn btn-orange">PRE ORDER HERE</a>
+    </div>
+    <div class="hero-media">
+        <!-- Remplacer par <video src="videos/toomuch.mp4" autoplay muted loop playsinline></video> -->
+        <div class="hero-placeholder">✶</div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════ LES DECKS ════════════════════════════════ -->
+<section class="products-section" id="decks">
+    <div class="products-section-inner">
+        <h2 class="section-title">LES DECKS</h2>
+        <div class="products-grid">
+
+            <div class="prod-card">
+                <p class="prod-card-name">TOO MUCH TAROT</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/toomuch-card.jpg" alt="Too Much Tarot"> -->
+                    ✶
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(3)">AJOUTER AU PANIER</button>
+            </div>
+
+            <div class="prod-card">
+                <p class="prod-card-name">HAS BEEN TAROT</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/hasbeen-card.jpg" alt="Has Been Tarot"> -->
+                    ✺
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(1)">AJOUTER AU PANIER</button>
+            </div>
+
+            <div class="prod-card">
+                <p class="prod-card-name">TOO MUCH LENORMAND</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/lenormand-card.jpg" alt="Too Much Lenormand"> -->
+                    ❉
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(2)">AJOUTER AU PANIER</button>
+            </div>
+
+            <div class="prod-card">
+                <p class="prod-card-name">BUNDLE</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/bundle-card.jpg" alt="Bundle"> -->
+                    ✦
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(4)">AJOUTER AU PANIER</button>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════ LES ACCESSOIRES ══════════════════════════════ -->
+<section class="products-section" id="accessoires">
+    <div class="products-section-inner">
+        <h2 class="section-title">LES ACCESSOIRES</h2>
+        <div class="products-grid">
+
+            <div class="prod-card">
+                <p class="prod-card-name">BOUGIE MARTINI</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/bougie-martini.jpg" alt="Bougie Martini"> -->
+                    ✿
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(5)">AJOUTER AU PANIER</button>
+            </div>
+
+            <div class="prod-card">
+                <p class="prod-card-name">BOUGIE MATCHA LATTE</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/bougie-matcha.jpg" alt="Bougie Matcha Latte"> -->
+                    ✿
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(6)">AJOUTER AU PANIER</button>
+            </div>
+
+            <div class="prod-card">
+                <p class="prod-card-name">BOUGIE UBE LATTE</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/bougie-ube.jpg" alt="Bougie Ube Latte"> -->
+                    ✿
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(7)">AJOUTER AU PANIER</button>
+            </div>
+
+            <div class="prod-card">
+                <p class="prod-card-name">BOUGIE TOMATE</p>
+                <div class="prod-card-media">
+                    <!-- <img src="images/bougie-tomate.jpg" alt="Bougie Tomate"> -->
+                    ✿
+                </div>
+                <button class="btn btn-magenta sm" onclick="addToCartById(8)">AJOUTER AU PANIER</button>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════ DÉTAIL — TOO MUCH LENORMAND ═══════════════════════ -->
+<section class="detail-section" id="detail-lenormand">
+    <div class="detail-copy">
+        <h2 class="detail-title">TOO MUCH<br>LENORMAND</h2>
+        <p class="detail-specs">
+            46 Cartes<br>
+            Format Poker 63×89mm<br>
+            310g finition Soft Touch<br>
+            Jeu livré dans pochon, accompagné de ces goodies
+        </p>
+        <button class="btn btn-magenta" onclick="addToCartById(2)">AJOUTER AU PANIER</button>
+    </div>
+    <div class="detail-media">
+        <!-- <video src="videos/lenormand-detail.mp4" autoplay muted loop playsinline></video> -->
+        ❉
+    </div>
+</section>
+
+<!-- ═══════════════════════════ DÉTAIL — TOO MUCH TAROT ══════════════════════════ -->
+<section class="detail-section rev" id="detail-toomuch">
+    <div class="detail-copy">
+        <h2 class="detail-title">TOO MUCH<br>TAROT</h2>
+        <p class="detail-specs">
+            82 Cartes<br>
+            Format Standard 70×120mm<br>
+            350g finition Soft Touch<br>
+            Jeu livré dans un bandana ou pochon, accompagné de ces goodies
+        </p>
+        <button class="btn btn-magenta" onclick="addToCartById(3)">AJOUTER AU PANIER</button>
+    </div>
+    <div class="detail-media">
+        <!-- <video src="videos/toomuch-detail.mp4" autoplay muted loop playsinline></video> -->
+        ✶
+    </div>
+</section>
+
+<!-- ═══════════════════════════ DÉTAIL — HAS BEEN TAROT ══════════════════════════ -->
+<section class="detail-section" id="detail-hasbeen">
+    <div class="detail-copy">
+        <h2 class="detail-title">HAS BEEN<br>TAROT</h2>
+        <p class="detail-specs">
+            87 Cartes<br>
+            Format Poker 63×89mm<br>
+            310g finition Soft Touch<br>
+            Jeu livré dans pochon, accompagné de ces goodies
+        </p>
+        <button class="btn btn-magenta" onclick="addToCartById(1)">AJOUTER AU PANIER</button>
+    </div>
+    <div class="detail-media">
+        <!-- <video src="videos/hasbeen-detail.mp4" autoplay muted loop playsinline></video> -->
+        ✺
+    </div>
+</section>
+
+</main>
+
+<!-- ═══════════════════════════════════ FOOTER ════════════════════════════════════ -->
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-holo">
+            <!-- <img src="images/holographic.jpg" alt=""> -->
+        </div>
+        <div class="footer-info">
+            <p>Me contacter si vous avez des questions</p>
+            <div class="footer-contacts">
+                <a href="https://instagram.com/TarotLens">@TarotLens (Instagram)</a>
+                <a href="mailto:TarotLens129@gmail.com">TarotLens129@gmail.com</a>
             </div>
         </div>
-    </header>
-
-    <main>
-        <!-- ========== HERO (tuiles plein écran empilées, comme Apple) ========== -->
-        <section class="hero" id="boutique">
-
-            <!-- Tuile héros principale -->
-            <article class="tile tile-hero theme-cream">
-                <span class="sunburst" aria-hidden="true"></span>
-                <div class="tile-copy">
-                    <p class="tile-eyebrow">Nouveau · Édition signature</p>
-                    <h1 class="tile-title display">Vos arcanes,<br>votre histoire</h1>
-                    <p class="tile-subhead">Des tarots dessinés à la main, personnalisés selon votre énergie.</p>
-                    <div class="tile-ctas">
-                        <a class="btn btn-primary" href="#personnaliser">Créer mon jeu</a>
-                        <a class="btn btn-ghost" href="#collections">Voir les collections</a>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Tuile héros secondaire -->
-            <article class="tile tile-hero theme-pink">
-                <div class="tile-copy">
-                    <p class="tile-eyebrow">Le best-seller</p>
-                    <h2 class="tile-title display">Le Tarot Solaire</h2>
-                    <p class="tile-subhead">78 lames lumineuses, dorées à chaud sur papier coton.</p>
-                    <div class="tile-ctas">
-                        <a class="btn btn-dark" href="boutique.html?cat=tarot">En savoir plus</a>
-                        <a class="btn btn-ghost" href="boutique.html?cat=tarot">Acheter — 59&nbsp;€</a>
-                    </div>
-                </div>
-                <div class="tile-art art-cards" aria-hidden="true">
-                    <span class="card c1">☀</span>
-                    <span class="card c2">☾</span>
-                    <span class="card c3">★</span>
-                </div>
-            </article>
-
-            <!-- Tuile sur-mesure -->
-            <article class="tile tile-hero theme-orange">
-                <div class="tile-copy">
-                    <p class="tile-eyebrow">Sur-mesure</p>
-                    <h2 class="tile-title display">Un jeu rien<br>qu'à vous</h2>
-                    <p class="tile-subhead">Vos prénoms, vos symboles, votre palette. On dessine le reste.</p>
-                    <div class="tile-ctas">
-                        <a class="btn btn-dark" href="#personnaliser">Commencer</a>
-                    </div>
-                </div>
-            </article>
-        </section>
-
-        <!-- ========== GRILLE PROMO (tuiles 2 colonnes, comme Apple) ========== -->
-        <section class="promo" id="collections">
-            <h2 class="section-label display">Collections</h2>
-            <div class="promo-grid">
-
-                <article class="tile tile-promo theme-cream">
-                    <div class="tile-copy">
-                        <h3 class="tile-title-sm display">Lune &amp; Lame</h3>
-                        <p class="tile-subhead">L'ésotérisme version pastel.</p>
-                        <div class="tile-ctas">
-                            <a class="btn btn-dark sm" href="boutique.html?cat=tarot">Découvrir</a>
-                            <a class="btn btn-ghost sm" href="boutique.html?cat=tarot">49&nbsp;€</a>
-                        </div>
-                    </div>
-                    <div class="tile-art art-grad grad-1" aria-hidden="true"></div>
-                </article>
-
-                <article class="tile tile-promo theme-pink">
-                    <div class="tile-copy">
-                        <h3 class="tile-title-sm display">Oracle Bohème</h3>
-                        <p class="tile-subhead">44 cartes, énergie nomade.</p>
-                        <div class="tile-ctas">
-                            <a class="btn btn-dark sm" href="boutique.html?cat=oracle">Découvrir</a>
-                            <a class="btn btn-ghost sm" href="boutique.html?cat=oracle">39&nbsp;€</a>
-                        </div>
-                    </div>
-                    <div class="tile-art art-grad grad-2" aria-hidden="true"></div>
-                </article>
-
-                <article class="tile tile-promo theme-dark">
-                    <div class="tile-copy">
-                        <h3 class="tile-title-sm display">Arcanes Majeurs</h3>
-                        <p class="tile-subhead">L'édition or sur fond nuit.</p>
-                        <div class="tile-ctas">
-                            <a class="btn btn-light sm" href="boutique.html?cat=tarot">Découvrir</a>
-                            <a class="btn btn-ghost-light sm" href="boutique.html?cat=tarot">69&nbsp;€</a>
-                        </div>
-                    </div>
-                    <div class="tile-art art-grad grad-3" aria-hidden="true"></div>
-                </article>
-
-                <article class="tile tile-promo theme-orange">
-                    <div class="tile-copy">
-                        <h3 class="tile-title-sm display">Carte Cadeau</h3>
-                        <p class="tile-subhead">Offrez un tirage, offrez un signe.</p>
-                        <div class="tile-ctas">
-                            <a class="btn btn-dark sm" href="boutique.html?cat=gift">Offrir</a>
-                        </div>
-                    </div>
-                    <div class="tile-art art-grad grad-4" aria-hidden="true"></div>
-                </article>
-            </div>
-        </section>
-
-        <!-- ========== PERSONNALISER (bloc à part) ========== -->
-        <section class="custom" id="personnaliser">
-            <div class="custom-inner theme-cream">
-                <span class="sunburst small" aria-hidden="true"></span>
-                <p class="tile-eyebrow">En 3 étapes</p>
-                <h2 class="tile-title display">Composez votre tarot</h2>
-                <div class="steps">
-                    <div class="step"><span class="step-num">01</span><h3>Choisissez un style</h3><p>Pastel, bohème, or sur nuit… votre ambiance.</p></div>
-                    <div class="step"><span class="step-num">02</span><h3>Ajoutez vos symboles</h3><p>Prénoms, dates, animaux totems, mots-clés.</p></div>
-                    <div class="step"><span class="step-num">03</span><h3>On dessine</h3><p>Un aperçu sous 72 h, des retouches illimitées.</p></div>
-                </div>
-                <a class="btn btn-primary" href="personnaliser.html">Lancer la création</a>
-            </div>
-        </section>
-
-        <!-- ========== GALERIE / CARROUSEL (comme la gallery Apple TV) ========== -->
-        <section class="gallery" id="lectures">
-            <h2 class="section-label display">Lectures &amp; rituels</h2>
-            <div class="gallery-track" id="galleryTrack" role="list">
-                <article class="g-item grad-1" role="listitem"><div class="g-tag">Amour</div><h3>Le tirage des âmes</h3></article>
-                <article class="g-item grad-2" role="listitem"><div class="g-tag">Carrière</div><h3>Le chemin du Soleil</h3></article>
-                <article class="g-item grad-3" role="listitem"><div class="g-tag">Guidance</div><h3>La voie de la Lune</h3></article>
-                <article class="g-item grad-4" role="listitem"><div class="g-tag">Nouvel an</div><h3>Les douze maisons</h3></article>
-                <article class="g-item grad-1" role="listitem"><div class="g-tag">Pleine lune</div><h3>Rituel de l'Étoile</h3></article>
-            </div>
-            <div class="gallery-nav">
-                <button id="galPrev" aria-label="Précédent">‹</button>
-                <button id="galNext" aria-label="Suivant">›</button>
-            </div>
-        </section>
-    </main>
-
-    <!-- ========== FOOTER (colonnes + légal, comme Apple) ========== -->
-    <footer class="footer" id="apropos">
-        <div class="footer-inner">
-            <nav class="footer-cols" aria-label="Liens du pied de page">
-                <div class="footer-col">
-                    <h4>Boutique</h4>
-                    <a href="boutique.html?cat=tarot">Tous les tarots</a>
-                    <a href="boutique.html?cat=oracle">Oracles</a>
-                    <a href="boutique.html?cat=accessory">Accessoires</a>
-                    <a href="boutique.html?cat=gift">Cartes cadeaux</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Sur-mesure</h4>
-                    <a href="personnaliser.html">Créer un jeu</a>
-                    <a href="personnaliser.html#exemples">Exemples</a>
-                    <a href="personnaliser.html#tarifs">Tarifs</a>
-                    <a href="personnaliser.html#delais">Délais</a>
-                </div>
-                <div class="footer-col">
-                    <h4>La maison</h4>
-                    <a href="apropos.html">Notre histoire</a>
-                    <a href="apropos.html#atelier">L'atelier</a>
-                    <a href="apropos.html#journal">Journal</a>
-                    <a href="contact.html">Contact</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Aide</h4>
-                    <a href="aide.html#livraison">Livraison</a>
-                    <a href="aide.html#retours">Retours</a>
-                    <a href="aide.html#faq">FAQ</a>
-                    <a href="aide.html#suivi">Suivi de commande</a>
-                </div>
-                <div class="footer-col footer-news">
-                    <h4>Restons connectés</h4>
-                    <p>Tirages, nouveautés et offres dans votre boîte mail.</p>
-                    <form class="news-form" onsubmit="return false;">
-                        <input type="email" placeholder="Votre e-mail" aria-label="Votre e-mail" />
-                        <button class="btn btn-primary sm" type="submit">OK</button>
-                    </form>
-                </div>
-            </nav>
-            <div class="footer-legal">
-                <span class="footer-logo display">Arcana</span>
-                <p>© 2026 Arcana — Tarots personnalisés. Fait main, avec intention. <a href="legal.html#mentions">Mentions légales</a> · <a href="legal.html#confidentialite">Confidentialité</a> · <a href="legal.html#cgv">CGV</a></p>
-            </div>
+        <p class="footer-bye">SEE YOU THERE!</p>
+        <div class="footer-legal-row">
+            <a href="legal.html">Mentions légales</a>
+            <span>© 2026 TarotLens</span>
         </div>
-    </footer>
+    </div>
+</footer>
 
-    <script src="cart.js"></script>
-    <script src="script.js"></script>
+<!-- TOAST -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="data.js"></script>
+<script src="cart.js"></script>
+<script>
+// Menu burger
+const burger = document.getElementById('navBurger');
+const navLinks = document.getElementById('navLinks');
+burger.addEventListener('click', () => {
+    const open = navLinks.classList.toggle('open');
+    burger.setAttribute('aria-expanded', open);
+});
+navLinks.querySelectorAll('a').forEach(a =>
+    a.addEventListener('click', () => {
+        navLinks.classList.remove('open');
+        burger.setAttribute('aria-expanded', 'false');
+    })
+);
+
+// Ombre nav au scroll
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+    nav.style.boxShadow = window.scrollY > 8 ? '0 4px 20px rgba(0,0,0,.15)' : 'none';
+}, { passive: true });
+
+// Add to cart
+const toast = document.getElementById('toast');
+let toastTimer;
+function addToCartById(id) {
+    const p = window.PRODUCTS.find(x => x.id === id);
+    if (!p) return;
+    window.ArcanaCart.add({ id: p.id, name: p.name, price: p.price, glyph: p.glyph, grad: p.grad, meta: p.tag });
+    document.querySelectorAll('.nav-badge').forEach(b =>
+        b.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: 300 })
+    );
+    toast.textContent = `« ${p.name} » ajouté au panier`;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// Révélation au scroll
+const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); } });
+}, { threshold: 0.12 });
+document.querySelectorAll('.hero-feature, .products-section, .detail-section').forEach(el => {
+    el.classList.add('reveal');
+    io.observe(el);
+});
+</script>
 </body>
 </html>
