@@ -418,6 +418,7 @@ img { max-width: 100%; display: block; }
     .nav-links { gap: 18px; }
     .nav-links a { font-size: 18px; }
     .products-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .prod-card-actions { flex-direction: column; }
 }
 
 @media (max-width: 480px) {
