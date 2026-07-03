@@ -368,16 +368,17 @@ img { max-width: 100%; display: block; }
    ============================================================ */
 .toast {
     position: fixed; left: 50%; bottom: 28px;
-    transform: translateX(-50%) translateY(140%);
+    transform: translateX(-50%) translateY(150px);
+    opacity: 0; pointer-events: none;
     background: var(--ink); color: var(--cream);
     font-weight: 700; font-size: 13px;
     letter-spacing: .5px; text-transform: uppercase;
     padding: 13px 22px; border-radius: 980px; z-index: 300;
-    transition: transform .4s cubic-bezier(.2,.7,.2,1);
+    transition: transform .4s cubic-bezier(.2,.7,.2,1), opacity .4s;
     box-shadow: 0 12px 30px rgba(0,0,0,.28);
     white-space: nowrap;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
 
 /* ============================================================
    UTILITAIRES PARTAGÉS
