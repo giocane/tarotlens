@@ -75,7 +75,7 @@
         <h2 class="section-title" data-i18n="title_decks">LES DECKS</h2>
         <div class="products-grid">
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="3">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name">TOO MUCH TAROT</p>
@@ -92,7 +92,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="1">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name">HAS BEEN TAROT</p>
@@ -109,7 +109,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="2">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name">TOO MUCH LENORMAND</p>
@@ -126,7 +126,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="4">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name">BUNDLE</p>
@@ -153,7 +153,7 @@
         <h2 class="section-title" data-i18n="title_accessories">LES ACCESSOIRES</h2>
         <div class="products-grid">
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="5">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p5_name">BOUGIE MARTINI</p>
@@ -170,7 +170,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="6">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p6_name">BOUGIE MATCHA LATTE</p>
@@ -187,7 +187,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="7">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p7_name">BOUGIE UBE LATTE</p>
@@ -204,7 +204,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="8">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p8_name">BOUGIE TOMATE</p>
@@ -221,7 +221,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="9">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p9_name">BOUGIE ORANGE</p>
@@ -238,7 +238,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="10">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p10_name">BOUGIE CITRON</p>
@@ -255,7 +255,7 @@
                 </div>
             </div>
 
-            <div class="prod-card">
+            <div class="prod-card" data-id="11">
                 <div class="prod-card-head">
 
                     <p class="prod-card-name" data-i18n="p11_name">BOUGIE FRAISE</p>
@@ -310,6 +310,7 @@
             <p class="modal-desc" id="modalDesc"></p>
             <p class="modal-specs" id="modalSpecs"></p>
             <button class="btn btn-magenta" id="modalAddBtn" data-i18n="btn_addToCart">AJOUTER AU PANIER</button>
+            <div id="modalNotify"></div>
         </div>
     </div>
 </div>
@@ -359,6 +360,64 @@ function addToCartById(id) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
+// Rupture de stock
+function notifyBlockHTML(t) {
+    return `
+        <span class="stock-badge">${t('stock_outOfStock')}</span>
+        <form class="notify-form">
+            <input type="email" required placeholder="${t('stock_notifyPlaceholder')}">
+            <button type="submit" class="btn btn-ghost sm">${t('stock_notifySubmit')}</button>
+        </form>
+        <p class="notify-msg" hidden></p>`;
+}
+
+function wireNotifyForm(container, product) {
+    const form = container.querySelector('.notify-form');
+    const msg = container.querySelector('.notify-msg');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { t, pick } = window.TarotLensI18n;
+        const input = form.querySelector('input');
+        const btn = form.querySelector('button');
+        btn.disabled = true;
+        btn.textContent = t('stock_notifySending');
+        try {
+            const res = await fetch(window.TAROTLENS_ENDPOINT, {
+                method: 'POST',
+                body: JSON.stringify({ type: 'stock_interest', email: input.value, product: pick(product, 'name'), lang: document.documentElement.lang || 'fr' }),
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || 'unknown');
+            form.hidden = true;
+            msg.textContent = t('stock_notifyThanks');
+            msg.classList.remove('error');
+            msg.hidden = false;
+        } catch (err) {
+            btn.disabled = false;
+            btn.textContent = t('stock_notifySubmit');
+            msg.textContent = t('stock_notifyError');
+            msg.classList.add('error');
+            msg.hidden = false;
+        }
+    });
+}
+
+function renderStockStates() {
+    const { t } = window.TarotLensI18n;
+    document.querySelectorAll('.prod-card[data-id]').forEach(card => {
+        const p = window.PRODUCTS.find(x => x.id === +card.dataset.id);
+        if (!p || p.inStock !== false) return;
+        card.classList.add('out-of-stock');
+        const addBtn = card.querySelector('.prod-card-actions .btn-magenta');
+        const block = document.createElement('div');
+        block.className = 'notify-block';
+        block.innerHTML = notifyBlockHTML(t);
+        addBtn.replaceWith(block);
+        wireNotifyForm(block, p);
+    });
+}
+renderStockStates();
+
 // Modale produit "En savoir +"
 const productModal = document.getElementById('productModal');
 const modalMedia = document.getElementById('modalMedia');
@@ -367,6 +426,7 @@ const modalTitle = document.getElementById('modalTitle');
 const modalDesc = document.getElementById('modalDesc');
 const modalSpecs = document.getElementById('modalSpecs');
 const modalAddBtn = document.getElementById('modalAddBtn');
+const modalNotify = document.getElementById('modalNotify');
 const modalClose = document.getElementById('modalClose');
 
 let modalImages = [];
@@ -439,7 +499,15 @@ function openProductModal(id) {
     ].filter(Boolean);
     modalSpecs.textContent = specs.length ? specs.join(' — ') : t('modal_descTodo');
 
-    modalAddBtn.onclick = () => { addToCartById(id); closeProductModal(); };
+    if (p.inStock === false) {
+        modalAddBtn.style.display = 'none';
+        modalNotify.innerHTML = notifyBlockHTML(t);
+        wireNotifyForm(modalNotify, p);
+    } else {
+        modalAddBtn.style.display = '';
+        modalNotify.innerHTML = '';
+        modalAddBtn.onclick = () => { addToCartById(id); closeProductModal(); };
+    }
     productModal.classList.add('show');
 }
 

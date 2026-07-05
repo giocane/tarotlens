@@ -1,4 +1,6 @@
 // TAROTLENS — panier partagé (localStorage)
+window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/REPLACE_WITH_DEPLOYMENT_ID/exec';
+
 (function () {
     const KEY = 'tarotlens_cart';
 

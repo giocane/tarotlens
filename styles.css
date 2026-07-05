@@ -227,6 +227,20 @@ img { max-width: 100%; display: block; }
 .prod-card-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .prod-card-actions .btn { flex: 1; text-align: center; }
 
+.prod-card.out-of-stock .prod-card-media { filter: grayscale(70%); opacity: .55; }
+.stock-badge {
+    display: inline-block; align-self: flex-start;
+    background: var(--ink); color: var(--cream);
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    padding: 5px 12px; border-radius: 980px;
+}
+.notify-block { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.notify-form { display: flex; flex-direction: column; gap: 8px; }
+.notify-form input { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 12px; padding: 9px 14px; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; background: var(--white); }
+.notify-form input:focus { outline: 0; border-color: var(--orange); }
+.notify-msg { font-size: 12px; }
+.notify-msg.error { color: #c33; }
+
 /* ============================================================
    MODALE PRODUIT
    ============================================================ */

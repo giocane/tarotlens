@@ -1,5 +1,4 @@
 // TAROTLENS — page panier
-const ORDER_ENDPOINT = 'https://script.google.com/macros/s/REPLACE_WITH_DEPLOYMENT_ID/exec';
 const root = document.getElementById('cartRoot');
 const { t, pick } = window.TarotLensI18n;
 
@@ -102,6 +101,7 @@ async function submitOrder(e, items, subtotal) {
     btn.textContent = t('cart_orderSending');
 
     const payload = {
+        type: 'order',
         name: document.getElementById('ordName').value,
         email: document.getElementById('ordEmail').value,
         phone: document.getElementById('ordPhone').value,
@@ -115,7 +115,7 @@ async function submitOrder(e, items, subtotal) {
     };
 
     try {
-        const res = await fetch(ORDER_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+        const res = await fetch(window.TAROTLENS_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'unknown');
         root.innerHTML = `<div class="cart-empty"><p class="cart-empty-title">${t('cart_thanksTitle')}</p><p style="opacity:.7;margin-bottom:20px">${t('cart_thanksText')}</p><a class="btn btn-orange" href="index.html">${t('cart_backHome')}</a></div>`;

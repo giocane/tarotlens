@@ -1,4 +1,5 @@
 // TAROTLENS — données produits
+// Rupture de stock : ajouter `inStock: false,` sur le produit concerné (absent = en stock).
 window.PRODUCTS = [
     // ── DECKS ──
     { id: 1, name: "Has Been Tarot",      tag: "Tarot",      cat: "deck",      cards: 87, format: "Poker 63×89mm",      weight: "310g finition Soft Touch", delivery: "Pas de boîte / Pochon ou carré en tissu",                          price: 59, badge: "new", glyph: "✺", grad: "g-hasbeen",  img: "images/hasbeen-card.jpg",
