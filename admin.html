@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css?v=2" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         .admin-wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 100px; }
         .admin-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
@@ -154,6 +155,7 @@
                     </select>
                 </div>
                 <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
+                <button type="button" class="btn btn-ghost sm" id="exportXlsxBtn">Exporter en XLSX</button>
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
@@ -413,26 +415,39 @@ function renderCommandes() {
 
 document.getElementById('filtreStatut').addEventListener('change', renderCommandes);
 
+const COLONNES_COMMANDES = [
+    { cle: 'date', libelle: 'Date' }, { cle: 'name', libelle: 'Nom' }, { cle: 'email', libelle: 'Email' },
+    { cle: 'phone', libelle: 'Téléphone' }, { cle: 'address', libelle: 'Adresse' }, { cle: 'items', libelle: 'Articles' },
+    { cle: 'subtotal', libelle: 'Sous-total' }, { cle: 'lang', libelle: 'Langue' }, { cle: 'statut', libelle: 'Statut' },
+];
+
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
-    const colonnes = [
-        { cle: 'date', libelle: 'Date' }, { cle: 'name', libelle: 'Nom' }, { cle: 'email', libelle: 'Email' },
-        { cle: 'phone', libelle: 'Téléphone' }, { cle: 'address', libelle: 'Adresse' }, { cle: 'items', libelle: 'Articles' },
-        { cle: 'subtotal', libelle: 'Sous-total' }, { cle: 'lang', libelle: 'Langue' }, { cle: 'statut', libelle: 'Statut' },
-    ];
     // Neutralise l'injection de formule pour un champ qui commencerait par =, +, -, @ (Excel/Sheets).
     const champCSV = (v) => {
         let s = String(v == null ? '' : v);
         if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
         return '"' + s.replace(/"/g, '""') + '"';
     };
-    const lignes = [colonnes.map(c => champCSV(c.libelle)).join(';')]
-        .concat(commandesCache.map(c => colonnes.map(col => champCSV(c[col.cle])).join(';')));
+    const lignes = [COLONNES_COMMANDES.map(c => champCSV(c.libelle)).join(';')]
+        .concat(commandesCache.map(c => COLONNES_COMMANDES.map(col => champCSV(c[col.cle])).join(';')));
     const blob = new Blob(['﻿' + lignes.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'tarotlens-commandes.csv';
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
+});
+
+document.getElementById('exportXlsxBtn').addEventListener('click', () => {
+    const lignes = commandesCache.map(c => {
+        const ligne = {};
+        COLONNES_COMMANDES.forEach(col => { ligne[col.libelle] = c[col.cle] == null ? '' : c[col.cle]; });
+        return ligne;
+    });
+    const feuille = XLSX.utils.json_to_sheet(lignes, { header: COLONNES_COMMANDES.map(c => c.libelle) });
+    const classeur = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(classeur, feuille, 'Commandes');
+    XLSX.writeFile(classeur, 'tarotlens-commandes.xlsx');
 });
 
 /* ==================== Stock ==================== */
