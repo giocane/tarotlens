@@ -383,11 +383,15 @@ function renderCommandes() {
     document.getElementById('commandesCount').textContent = lignes.length + ' / ' + commandesCache.length + ' commande(s)';
 
     if (!lignes.length) { el.innerHTML = '<tr><td colspan="8">Aucune commande.</td></tr>'; return; }
-    el.innerHTML = lignes.map(c => `
+    el.innerHTML = lignes.map(c => {
+        const sujet = encodeURIComponent('TarotLens — à propos de votre commande');
+        const corps = encodeURIComponent(`Bonjour ${c.name || ''},\n\n`);
+        const mailtoHref = c.email ? `mailto:${c.email}?subject=${sujet}&body=${corps}` : '';
+        return `
         <tr class="${c.statut === 'Nouvelle' ? 'admin-row-new' : ''}">
             <td>${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''}</td>
             <td>${escapeHTML(c.name)}<br><span class="admin-muted">${escapeHTML(c.email)}</span></td>
-            <td>${escapeHTML(c.phone) || '—'}</td>
+            <td>${escapeHTML(c.phone) || '—'}${mailtoHref ? `<br><a class="btn btn-ghost sm" style="margin-top:4px;display:inline-block" href="${escapeHTML(mailtoHref)}">Contacter</a>` : ''}</td>
             <td>${escapeHTML(c.address) || '—'}</td>
             <td>${escapeHTML(c.items)}</td>
             <td>${c.subtotal ? escapeHTML(c.subtotal) + ' €' : '—'}</td>
@@ -397,7 +401,8 @@ function renderCommandes() {
                     ${STATUTS.map(s => `<option value="${s}" ${s === c.statut ? 'selected' : ''}>${s}</option>`).join('')}
                 </select>
             </td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
     el.querySelectorAll('.admin-select-statut').forEach(sel => {
         sel.addEventListener('change', async () => {
             const rep = await api('adminSetStatutCommande', { row: +sel.dataset.row, statut: sel.value });
