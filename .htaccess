@@ -1,0 +1,28 @@
+# TAROTLENS — config Apache pour le déploiement (O2Switch, sous-domaine ou
+# sous-dossier à côté de WordPress). À placer à la racine du dossier déployé.
+
+# Pas de listing de dossier si un visiteur tombe sur images/ ou videos/ sans fichier précis.
+Options -Indexes
+
+# Force HTTPS (O2Switch fournit un certificat SSL gratuit sur les sous-domaines).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Bloque l'accès direct à des fichiers de dev qui traîneraient par erreur
+# dans le dossier envoyé en FTP (.git, README, etc.).
+<FilesMatch "(^\.git|\.gitignore$|^README\.md$)">
+    Require all denied
+</FilesMatch>
+
+# Cache navigateur pour les médias statiques (accélère les visites répétées).
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png  "access plus 1 month"
+    ExpiresByType video/mp4  "access plus 1 month"
+    ExpiresByType text/css   "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+</IfModule>

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Administration — TarotLens</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css?v=2" />
+    <style>
+        .admin-wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 100px; }
+        .admin-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
+        .admin-title { font-family: var(--font-display); font-size: clamp(32px,5vw,48px); color: var(--orange); text-transform: uppercase; line-height: .9; }
+        .admin-logout { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 8px 18px; font-family: var(--font-body); font-weight: 600; font-size: 13px; cursor: pointer; }
+        .admin-logout:hover { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+        /* Connexion */
+        .admin-login-box { max-width: 380px; margin: 80px auto; background: var(--white); border-radius: var(--radius); padding: 32px; text-align: center; }
+        .admin-login-box h1 { font-family: var(--font-display); font-size: 28px; color: var(--orange); text-transform: uppercase; margin-bottom: 20px; }
+        .admin-field { font-family: inherit; font-size: 15px; padding: 12px 16px; border: 2px solid rgba(26,22,20,.15); border-radius: 14px; background: var(--white); width: 100%; box-sizing: border-box; }
+        .admin-field:focus { outline: 0; border-color: var(--orange); }
+        .admin-error { color: #c0392b; font-size: 13px; margin-top: 10px; font-weight: 600; }
+
+        /* Onglets */
+        .admin-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        .admin-tab-btn { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 9px 20px; font-family: var(--font-body); font-weight: 700; font-size: 13px; letter-spacing: .5px; text-transform: uppercase; cursor: pointer; }
+        .admin-tab-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+        .admin-tab-panel { display: none; }
+        .admin-tab-panel.active { display: block; }
+        .admin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .admin-muted { opacity: .6; font-size: 13px; }
+
+        /* Tables */
+        .admin-table-wrap { background: var(--white); border-radius: var(--radius); overflow-x: auto; }
+        table.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        table.admin-table th, table.admin-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid rgba(26,22,20,.08); vertical-align: top; }
+        table.admin-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; opacity: .6; }
+        table.admin-table tr:last-child td { border-bottom: 0; }
+
+        /* Produits */
+        .admin-prod-row { display: flex; align-items: center; gap: 14px; background: var(--white); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; }
+        .admin-prod-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: linear-gradient(135deg,#ddd5c0,#c8c0a8); flex-shrink: 0; }
+        .admin-prod-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .admin-prod-info strong { font-family: var(--font-display); font-size: 16px; text-transform: uppercase; color: var(--ink); font-weight: normal; letter-spacing: .3px; }
+
+        /* Modale édition produit */
+        .admin-modal-panel { position: relative; width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; background: var(--cream); border-radius: var(--radius); box-shadow: 0 24px 60px rgba(0,0,0,.35); padding: 32px; }
+        .admin-modal-title { font-family: var(--font-display); font-size: 26px; color: var(--orange); text-transform: uppercase; margin-bottom: 20px; }
+        .admin-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .admin-form-grid.full { grid-template-columns: 1fr; }
+        .admin-form-group { display: flex; flex-direction: column; gap: 5px; }
+        .admin-form-group label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; opacity: .7; }
+        .admin-form-group textarea.admin-field { min-height: 90px; resize: vertical; font-family: inherit; }
+        .admin-section-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 10px; color: var(--magenta); }
+        .admin-checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 4px; }
+        .admin-image-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .admin-image-thumb, .admin-image-video { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: linear-gradient(135deg,#ddd5c0,#c8c0a8); flex-shrink: 0; display: grid; place-items: center; font-size: 18px; }
+        .admin-icon-btn { background: none; border: 0; font-size: 16px; opacity: .5; cursor: pointer; padding: 4px 8px; }
+        .admin-icon-btn:hover { opacity: 1; color: #c0392b; }
+        .admin-images-actions { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+        .admin-form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; gap: 10px; flex-wrap: wrap; }
+        .admin-help { font-size: 12px; opacity: .55; margin-top: -2px; margin-bottom: 10px; }
+
+        /* Toast */
+        .admin-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 980px; font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 500; }
+        .admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .admin-toast.err { background: #c0392b; }
+
+        /* Tableau de bord */
+        .admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+        .admin-stat-card { background: var(--white); border-radius: 14px; padding: 18px 20px; }
+        .admin-stat-value { font-family: var(--font-display); font-size: 30px; color: var(--orange); line-height: 1; }
+        .admin-stat-label { font-size: 12px; opacity: .65; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+        .admin-alert-box { background: var(--white); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+        .admin-alert-box h3 { font-family: var(--font-display); font-size: 18px; color: var(--magenta); text-transform: uppercase; margin-bottom: 10px; }
+        .admin-alert-row { display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0; border-bottom: 1px solid rgba(26,22,20,.06); }
+        .admin-alert-row:last-child { border-bottom: 0; }
+        .admin-alert-empty { font-size: 14px; opacity: .6; }
+
+        /* Statuts + filtre */
+        .admin-badge-statut { display: inline-block; padding: 3px 10px; border-radius: 980px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .admin-badge-statut.Nouvelle { background: #fce8b3; color: #7a4706; }
+        .admin-badge-statut.Expédiée { background: #b3efd3; color: #04502e; }
+        .admin-badge-statut.Annulée { background: #fbd3e0; color: #822111; }
+        tr.admin-row-new td { background: rgba(232,78,10,.05); }
+        .admin-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .admin-row-low td:nth-child(2) { color: #c0392b; font-weight: 700; }
+        .admin-move-btns { display: inline-flex; gap: 2px; margin-right: 6px; }
+        .admin-move-btns button { background: none; border: 1px solid rgba(26,22,20,.15); border-radius: 6px; width: 24px; height: 24px; cursor: pointer; font-size: 12px; line-height: 1; }
+        .admin-move-btns button:disabled { opacity: .25; cursor: default; }
+
+        @media (max-width: 600px) {
+            .admin-form-grid { grid-template-columns: 1fr; }
+            .admin-modal-panel { padding: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="admin-wrap">
+    <div class="admin-header">
+        <a href="index.html" class="nav-logo" style="color:var(--orange);text-decoration:none;">TAROTLENS</a>
+    </div>
+
+    <!-- CONNEXION -->
+    <div class="admin-login-box" id="admin-login">
+        <h1>Administration</h1>
+        <form id="loginForm">
+            <input type="password" id="loginKey" class="admin-field" placeholder="Clé admin" autocomplete="current-password" required>
+            <button type="submit" class="btn btn-orange" style="width:100%;margin-top:14px;text-align:center">SE CONNECTER</button>
+            <p class="admin-error" id="loginError" hidden>Clé incorrecte.</p>
+        </form>
+    </div>
+
+    <!-- APP ADMIN -->
+    <div id="admin-app" style="display:none">
+        <div class="admin-panel-head">
+            <h1 class="admin-title">Administration</h1>
+            <button type="button" class="admin-logout" id="logoutBtn">Se déconnecter</button>
+        </div>
+
+        <div class="admin-tabs">
+            <button type="button" class="admin-tab-btn" data-tab="dashboard">Tableau de bord</button>
+            <button type="button" class="admin-tab-btn" data-tab="commandes">Commandes</button>
+            <button type="button" class="admin-tab-btn" data-tab="stock">Stock</button>
+            <button type="button" class="admin-tab-btn" data-tab="produits">Produits</button>
+        </div>
+
+        <!-- TABLEAU DE BORD -->
+        <div class="admin-tab-panel" id="tab-dashboard">
+            <div class="admin-stats" id="dashboardStats"></div>
+            <div class="admin-alert-box">
+                <h3>Ruptures &amp; stock faible</h3>
+                <div id="dashboardStockAlert"></div>
+            </div>
+            <div class="admin-alert-box">
+                <h3>Dernières commandes</h3>
+                <div id="dashboardCommandes"></div>
+            </div>
+        </div>
+
+        <!-- COMMANDES -->
+        <div class="admin-tab-panel" id="tab-commandes">
+            <div class="admin-panel-head">
+                <div class="admin-filters">
+                    <span class="admin-muted" id="commandesCount"></span>
+                    <select class="admin-field" id="filtreStatut" style="width:auto">
+                        <option value="">Tous les statuts</option>
+                        <option value="Nouvelle">Nouvelle</option>
+                        <option value="Expédiée">Expédiée</option>
+                        <option value="Annulée">Annulée</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr><th>Date</th><th>Client</th><th>Contact</th><th>Adresse</th><th>Articles</th><th>Montant</th><th>Langue</th><th>Statut</th></tr>
+                    </thead>
+                    <tbody id="commandesBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- STOCK -->
+        <div class="admin-tab-panel" id="tab-stock">
+            <p class="admin-help">Quantité vide = produit non suivi (le site retombe sur le statut "en rupture" éditable dans l'onglet Produits). Quantité ≤ 3 mise en évidence.</p>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>Produit</th><th>Quantité</th><th></th></tr></thead>
+                    <tbody id="stockBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PRODUITS -->
+        <div class="admin-tab-panel" id="tab-produits">
+            <div class="admin-panel-head">
+                <span class="admin-muted">Flèches = réordonner l'affichage sur le site.</span>
+                <button type="button" class="btn btn-magenta sm" id="nouveauProduitBtn">+ Ajouter un produit</button>
+            </div>
+            <div id="produitsListe"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE ÉDITION PRODUIT -->
+<div class="modal-overlay" id="produitModal" role="dialog" aria-modal="true">
+    <div class="admin-modal-panel">
+        <button class="modal-close" id="produitModalClose" aria-label="Fermer" type="button">&times;</button>
+        <h2 class="admin-modal-title" id="produitModalTitle">Produit</h2>
+        <form id="produitForm">
+            <div class="admin-form-grid">
+                <div class="admin-form-group"><label>Nom (FR)</label><input class="admin-field" id="f_name" required></div>
+                <div class="admin-form-group"><label>Nom (EN) — vide = identique au FR</label><input class="admin-field" id="f_name_en"></div>
+                <div class="admin-form-group"><label>Catégorie</label>
+                    <select class="admin-field" id="f_cat">
+                        <option value="deck">Deck</option>
+                        <option value="accessory">Accessoire</option>
+                        <option value="bundle">Bundle</option>
+                    </select>
+                </div>
+                <div class="admin-form-group"><label>Prix (€)</label><input class="admin-field" id="f_price" type="number" min="0" step="0.01" required></div>
+                <div class="admin-form-group"><label>Étiquette / tag (FR)</label><input class="admin-field" id="f_tag"></div>
+                <div class="admin-form-group"><label>Étiquette / tag (EN)</label><input class="admin-field" id="f_tag_en"></div>
+                <div class="admin-form-group"><label>Nombre de cartes</label><input class="admin-field" id="f_cards" type="number" min="0"></div>
+                <div class="admin-form-group"><label>Symbole (glyphe)</label><input class="admin-field" id="f_glyph" maxlength="4"></div>
+                <div class="admin-form-group"><label>Format (FR)</label><input class="admin-field" id="f_format"></div>
+                <div class="admin-form-group"><label>Format (EN)</label><input class="admin-field" id="f_format_en"></div>
+                <div class="admin-form-group"><label>Poids / finition (FR)</label><input class="admin-field" id="f_weight"></div>
+                <div class="admin-form-group"><label>Poids / finition (EN)</label><input class="admin-field" id="f_weight_en"></div>
+                <div class="admin-form-group"><label>Livraison (FR)</label><input class="admin-field" id="f_delivery"></div>
+                <div class="admin-form-group"><label>Livraison (EN)</label><input class="admin-field" id="f_delivery_en"></div>
+            </div>
+
+            <div class="admin-form-grid full">
+                <div class="admin-form-group"><label>Description (FR)</label><textarea class="admin-field" id="f_desc"></textarea></div>
+                <div class="admin-form-group"><label>Description (EN)</label><textarea class="admin-field" id="f_desc_en"></textarea></div>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
+            </div>
+
+            <p class="admin-section-label">Photos &amp; vidéos</p>
+            <p class="admin-help">La 1ʳᵉ image est la couverture. Upload = photos uniquement (8 Mo max) ; pour une vidéo, colle son chemin (ex. videos/mon-produit.mp4) via "Ajouter une URL".</p>
+            <div id="imagesEditeur"></div>
+            <div class="admin-images-actions">
+                <label class="btn btn-ghost sm" style="cursor:pointer">Ajouter une photo<input type="file" id="photoInput" accept="image/*" hidden></label>
+                <button type="button" class="btn btn-ghost sm" id="ajouterUrlBtn">Ajouter une URL</button>
+            </div>
+
+            <div class="admin-form-actions">
+                <button type="button" class="admin-logout" id="supprimerProduitBtn" style="border-color:#c0392b;color:#c0392b">Supprimer ce produit</button>
+                <button type="submit" class="btn btn-orange">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="admin-toast" id="toast"></div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
+const KEY_STORAGE = 'tarotlens_admin_key';
+const STATUTS = ['Nouvelle', 'Expédiée', 'Annulée'];
+
+const getCle = () => { try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } };
+const setCle = (v) => { try { localStorage.setItem(KEY_STORAGE, v); } catch { /* stockage indisponible */ } };
+const effacerCle = () => { try { localStorage.removeItem(KEY_STORAGE); } catch { /* stockage indisponible */ } };
+
+function escapeHTML(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let toastTimer;
+function toast(msg, isError) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'admin-toast show' + (isError ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// Toujours en POST : la clé admin ne doit jamais transiter par l'URL.
+async function api(action, params = {}) {
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, ak: getCle(), ...params }),
+        });
+        return await res.json();
+    } catch {
+        return { ok: false, error: 'Connexion au service impossible. Réessayez dans un instant.' };
+    }
+}
+
+/* ==================== Connexion ==================== */
+
+async function tenterConnexion(cle, silencieux) {
+    setCle(cle);
+    const rep = await api('adminLogin');
+    if (rep.ok) {
+        document.getElementById('admin-login').style.display = 'none';
+        document.getElementById('admin-app').style.display = 'block';
+        switchTab('dashboard');
+    } else if (!silencieux) {
+        effacerCle();
+        document.getElementById('loginError').hidden = false;
+    }
+}
+
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    document.getElementById('loginError').hidden = true;
+    tenterConnexion(document.getElementById('loginKey').value.trim());
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    effacerCle();
+    location.reload();
+});
+
+const cleExistante = getCle();
+if (cleExistante) tenterConnexion(cleExistante, true);
+
+/* ==================== Onglets ==================== */
+
+function switchTab(name) {
+    document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    if (name === 'dashboard') chargerDashboard();
+    if (name === 'commandes') chargerCommandes();
+    if (name === 'stock') chargerStock();
+    if (name === 'produits') chargerProduits();
+}
+
+/* ==================== Tableau de bord ==================== */
+
+async function chargerDashboard() {
+    document.getElementById('dashboardStats').innerHTML = '<div class="admin-stat-card">Chargement…</div>';
+    const [repCommandes, repProduits, repStock] = await Promise.all([
+        api('adminListCommandes'), api('adminListProduits'), api('adminListStock'),
+    ]);
+    if (!repCommandes.ok) { document.getElementById('dashboardStats').innerHTML = `Erreur : ${escapeHTML(repCommandes.error)}`; return; }
+
+    const commandes = repCommandes.commandes;
+    const produits = repProduits.ok ? repProduits.produits : [];
+    const stockParId = {};
+    (repStock.ok ? repStock.stock : []).forEach(s => { stockParId[s.id] = s.qty; });
+
+    const actives = commandes.filter(c => c.statut !== 'Annulée');
+    const ca = actives.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
+    const nouvelles = commandes.filter(c => c.statut === 'Nouvelle').length;
+
+    document.getElementById('dashboardStats').innerHTML = `
+        <div class="admin-stat-card"><div class="admin-stat-value">${ca.toFixed(2)} €</div><div class="admin-stat-label">CA (hors annulées)</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${commandes.length}</div><div class="admin-stat-label">Commandes totales</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${nouvelles}</div><div class="admin-stat-label">À traiter</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${produits.length}</div><div class="admin-stat-label">Produits au catalogue</div></div>`;
+
+    const alertes = produits.filter(p => {
+        const qty = stockParId[p.id];
+        return p.inStock === false || (typeof qty === 'number' && qty <= 3);
+    });
+    const elAlertes = document.getElementById('dashboardStockAlert');
+    elAlertes.innerHTML = alertes.length ? alertes.map(p => {
+        const qty = stockParId[p.id];
+        const label = p.inStock === false ? 'Marqué en rupture' : `Plus que ${qty} en stock`;
+        return `<div class="admin-alert-row"><span>${escapeHTML(p.name)}</span><span>${label}</span></div>`;
+    }).join('') : '<p class="admin-alert-empty">Rien à signaler.</p>';
+
+    const elCommandes = document.getElementById('dashboardCommandes');
+    const recentes = commandes.slice(0, 5);
+    elCommandes.innerHTML = recentes.length ? recentes.map(c => `
+        <div class="admin-alert-row">
+            <span>${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''} — ${escapeHTML(c.name)}</span>
+            <span><span class="admin-badge-statut ${c.statut}">${c.statut}</span></span>
+        </div>`).join('') : '<p class="admin-alert-empty">Aucune commande.</p>';
+}
+document.querySelectorAll('.admin-tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+/* ==================== Commandes ==================== */
+
+let commandesCache = [];
+
+async function chargerCommandes() {
+    const el = document.getElementById('commandesBody');
+    el.innerHTML = '<tr><td colspan="8">Chargement…</td></tr>';
+    const rep = await api('adminListCommandes');
+    if (!rep.ok) { el.innerHTML = `<tr><td colspan="8">Erreur : ${escapeHTML(rep.error)}</td></tr>`; return; }
+    commandesCache = rep.commandes;
+    renderCommandes();
+}
+
+function renderCommandes() {
+    const el = document.getElementById('commandesBody');
+    const filtre = document.getElementById('filtreStatut').value;
+    const lignes = filtre ? commandesCache.filter(c => c.statut === filtre) : commandesCache;
+    document.getElementById('commandesCount').textContent = lignes.length + ' / ' + commandesCache.length + ' commande(s)';
+
+    if (!lignes.length) { el.innerHTML = '<tr><td colspan="8">Aucune commande.</td></tr>'; return; }
+    el.innerHTML = lignes.map(c => `
+        <tr class="${c.statut === 'Nouvelle' ? 'admin-row-new' : ''}">
+            <td>${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''}</td>
+            <td>${escapeHTML(c.name)}<br><span class="admin-muted">${escapeHTML(c.email)}</span></td>
+            <td>${escapeHTML(c.phone) || '—'}</td>
+            <td>${escapeHTML(c.address) || '—'}</td>
+            <td>${escapeHTML(c.items)}</td>
+            <td>${c.subtotal ? escapeHTML(c.subtotal) + ' €' : '—'}</td>
+            <td>${escapeHTML(c.lang)}</td>
+            <td>
+                <select class="admin-field admin-select-statut" data-row="${c.row}">
+                    ${STATUTS.map(s => `<option value="${s}" ${s === c.statut ? 'selected' : ''}>${s}</option>`).join('')}
+                </select>
+            </td>
+        </tr>`).join('');
+    el.querySelectorAll('.admin-select-statut').forEach(sel => {
+        sel.addEventListener('change', async () => {
+            const rep = await api('adminSetStatutCommande', { row: +sel.dataset.row, statut: sel.value });
+            if (rep.ok) {
+                toast('Statut mis à jour.');
+                const c = commandesCache.find(x => x.row === +sel.dataset.row);
+                if (c) c.statut = sel.value;
+                renderCommandes();
+            } else {
+                toast(rep.error, true);
+            }
+        });
+    });
+}
+
+document.getElementById('filtreStatut').addEventListener('change', renderCommandes);
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    const colonnes = [
+        { cle: 'date', libelle: 'Date' }, { cle: 'name', libelle: 'Nom' }, { cle: 'email', libelle: 'Email' },
+        { cle: 'phone', libelle: 'Téléphone' }, { cle: 'address', libelle: 'Adresse' }, { cle: 'items', libelle: 'Articles' },
+        { cle: 'subtotal', libelle: 'Sous-total' }, { cle: 'lang', libelle: 'Langue' }, { cle: 'statut', libelle: 'Statut' },
+    ];
+    // Neutralise l'injection de formule pour un champ qui commencerait par =, +, -, @ (Excel/Sheets).
+    const champCSV = (v) => {
+        let s = String(v == null ? '' : v);
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return '"' + s.replace(/"/g, '""') + '"';
+    };
+    const lignes = [colonnes.map(c => champCSV(c.libelle)).join(';')]
+        .concat(commandesCache.map(c => colonnes.map(col => champCSV(c[col.cle])).join(';')));
+    const blob = new Blob(['﻿' + lignes.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'tarotlens-commandes.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+});
+
+/* ==================== Stock ==================== */
+
+async function chargerStock() {
+    const el = document.getElementById('stockBody');
+    el.innerHTML = '<tr><td colspan="3">Chargement…</td></tr>';
+    const [repProduits, repStock] = await Promise.all([api('adminListProduits'), api('adminListStock')]);
+    if (!repProduits.ok) { el.innerHTML = `<tr><td colspan="3">Erreur : ${escapeHTML(repProduits.error)}</td></tr>`; return; }
+    produitsCache = repProduits.produits;
+    const stockParId = {};
+    (repStock.ok ? repStock.stock : []).forEach(s => { stockParId[s.id] = s.qty; });
+
+    if (!produitsCache.length) { el.innerHTML = '<tr><td colspan="3">Aucun produit — remplis d\'abord l\'onglet Produits.</td></tr>'; return; }
+
+    el.innerHTML = produitsCache.map(p => {
+        const qty = stockParId[p.id];
+        const low = typeof qty === 'number' && qty <= 3;
+        return `
+        <tr class="${low ? 'admin-row-low' : ''}">
+            <td>${escapeHTML(p.name)}</td>
+            <td><input type="number" min="0" class="admin-field" style="width:90px" value="${qty ?? ''}" placeholder="non suivi" data-stock-id="${p.id}"></td>
+            <td><button type="button" class="btn btn-ghost sm" data-save-stock="${p.id}">Enregistrer</button></td>
+        </tr>`;
+    }).join('');
+
+    el.querySelectorAll('[data-save-stock]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.saveStock;
+            const p = produitsCache.find(x => String(x.id) === String(id));
+            const input = el.querySelector(`[data-stock-id="${id}"]`);
+            const rep = await api('adminSetStock', { id, nom: p ? p.name : '', qty: input.value });
+            if (rep.ok) toast('Stock mis à jour.'); else toast(rep.error, true);
+        });
+    });
+}
+
+/* ==================== Produits ==================== */
+
+let produitsCache = [];
+
+async function chargerProduits() {
+    const el = document.getElementById('produitsListe');
+    el.innerHTML = 'Chargement…';
+    const rep = await api('adminListProduits');
+    if (!rep.ok) { el.innerHTML = `Erreur : ${escapeHTML(rep.error)}`; return; }
+    produitsCache = rep.produits;
+    renderProduitsListe();
+}
+
+function renderProduitsListe() {
+    const el = document.getElementById('produitsListe');
+    if (!produitsCache.length) { el.innerHTML = '<p class="admin-muted">Aucun produit pour l\'instant.</p>'; return; }
+    el.innerHTML = produitsCache.map((p, i) => `
+        <div class="admin-prod-row">
+            <span class="admin-move-btns">
+                <button type="button" data-move="up" data-id="${p.id}" ${i === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+                <button type="button" data-move="down" data-id="${p.id}" ${i === produitsCache.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+            </span>
+            <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
+            <div class="admin-prod-info">
+                <strong>${escapeHTML(p.name)}</strong>
+                <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.inStock === false ? ' — marqué en rupture' : ''}</span>
+            </div>
+            <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
+            <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
+        </div>`).join('');
+    el.querySelectorAll('[data-edit-produit]').forEach(b => b.addEventListener('click', () => ouvrirFormProduit(+b.dataset.editProduit)));
+    el.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click', async () => {
+        const rep = await api('adminMoveProduit', { id: b.dataset.id, sens: b.dataset.move });
+        if (rep.ok) chargerProduits(); else toast(rep.error, true);
+    }));
+    el.querySelectorAll('[data-duplicate-produit]').forEach(b => b.addEventListener('click', async () => {
+        const p = produitsCache.find(x => x.id === +b.dataset.duplicateProduit);
+        if (!p) return;
+        const copie = { ...p, id: null, name: p.name + ' (copie)' };
+        const rep = await api('adminSaveProduit', { produit: copie });
+        if (rep.ok) { toast('Produit dupliqué.'); chargerProduits(); } else { toast(rep.error, true); }
+    }));
+}
+
+document.getElementById('nouveauProduitBtn').addEventListener('click', () => ouvrirFormProduit(null));
+
+let produitEnEdition = null;
+let imagesEnEdition = [];
+
+const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph'];
+
+function produitVide() {
+    return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
+        format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true };
+}
+
+function ouvrirFormProduit(id) {
+    const p = id ? produitsCache.find(x => x.id === id) : produitVide();
+    if (!p) return;
+    produitEnEdition = { ...p };
+    imagesEnEdition = [...(p.images || [])];
+
+    CHAMPS_TEXTE.forEach(c => { document.getElementById('f_' + c).value = p[c] || ''; });
+    document.getElementById('f_cat').value = p.cat || 'deck';
+    document.getElementById('f_cards').value = p.cards ?? '';
+    document.getElementById('f_price').value = p.price ?? 0;
+    document.getElementById('f_desc').value = p.desc || '';
+    document.getElementById('f_desc_en').value = p.desc_en || '';
+    document.getElementById('f_inStock').checked = p.inStock !== false;
+    renderImagesEditeur();
+
+    document.getElementById('produitModalTitle').textContent = id ? 'Modifier le produit' : 'Nouveau produit';
+    document.getElementById('supprimerProduitBtn').style.display = id ? '' : 'none';
+    document.getElementById('produitModal').classList.add('show');
+}
+
+function fermerFormProduit() {
+    document.getElementById('produitModal').classList.remove('show');
+}
+document.getElementById('produitModalClose').addEventListener('click', fermerFormProduit);
+document.getElementById('produitModal').addEventListener('click', (e) => { if (e.target.id === 'produitModal') fermerFormProduit(); });
+
+function renderImagesEditeur() {
+    const el = document.getElementById('imagesEditeur');
+    if (!imagesEnEdition.length) { el.innerHTML = '<p class="admin-muted">Aucune photo/vidéo pour l\'instant.</p>'; return; }
+    el.innerHTML = imagesEnEdition.map((url, i) => `
+        <div class="admin-image-row">
+            ${/\.(mp4|mov)$/i.test(url)
+                ? '<span class="admin-image-video">🎬</span>'
+                : `<img src="${escapeHTML(url)}" class="admin-image-thumb" onerror="this.style.visibility='hidden'">`}
+            <input type="text" class="admin-field" value="${escapeHTML(url)}" data-img-index="${i}" placeholder="images/... ou https://...">
+            <button type="button" class="admin-icon-btn" data-remove-img="${i}" aria-label="Retirer">✕</button>
+        </div>`).join('');
+    el.querySelectorAll('[data-img-index]').forEach(inp => inp.addEventListener('change', () => {
+        imagesEnEdition[+inp.dataset.imgIndex] = inp.value.trim();
+    }));
+    el.querySelectorAll('[data-remove-img]').forEach(btn => btn.addEventListener('click', () => {
+        imagesEnEdition.splice(+btn.dataset.removeImg, 1);
+        renderImagesEditeur();
+    }));
+}
+
+document.getElementById('ajouterUrlBtn').addEventListener('click', () => {
+    imagesEnEdition.push('');
+    renderImagesEditeur();
+});
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+document.getElementById('photoInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast('Seules les images sont acceptées ici (vidéos : Ajouter une URL).', true); return; }
+    if (file.size > 8 * 1024 * 1024) { toast('Image trop lourde (8 Mo max).', true); return; }
+    toast('Envoi de la photo…');
+    const base64 = await fileToBase64(file);
+    const rep = await api('adminUploadPhoto', { filename: file.name, mimeType: file.type, data: base64 });
+    if (rep.ok) {
+        imagesEnEdition.push(rep.url);
+        renderImagesEditeur();
+        toast('Photo ajoutée.');
+    } else {
+        toast(rep.error, true);
+    }
+});
+
+document.getElementById('produitForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const p = { ...produitEnEdition };
+    CHAMPS_TEXTE.forEach(c => { p[c] = document.getElementById('f_' + c).value.trim(); });
+    p.cat = document.getElementById('f_cat').value;
+    p.cards = document.getElementById('f_cards').value === '' ? null : Number(document.getElementById('f_cards').value);
+    p.price = Number(document.getElementById('f_price').value) || 0;
+    p.desc = document.getElementById('f_desc').value;
+    p.desc_en = document.getElementById('f_desc_en').value;
+    p.inStock = document.getElementById('f_inStock').checked;
+    p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
+
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    const rep = await api('adminSaveProduit', { produit: p });
+    btn.disabled = false;
+    if (rep.ok) {
+        toast('Produit enregistré.');
+        fermerFormProduit();
+        chargerProduits();
+    } else {
+        toast(rep.error, true);
+    }
+});
+
+document.getElementById('supprimerProduitBtn').addEventListener('click', async () => {
+    if (!produitEnEdition || !produitEnEdition.id) return;
+    if (!confirm(`Supprimer « ${produitEnEdition.name} » ? Cette action est irréversible.`)) return;
+    const rep = await api('adminDeleteProduit', { id: produitEnEdition.id });
+    if (rep.ok) {
+        toast('Produit supprimé.');
+        fermerFormProduit();
+        chargerProduits();
+    } else {
+        toast(rep.error, true);
+    }
+});
+</script>
+</body>
+</html>

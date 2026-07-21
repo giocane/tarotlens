@@ -41,3 +41,43 @@ window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pK
     window.ArcanaCart = { get, save, add, setQty, remove, clear, count, total, updateBadges };
     document.addEventListener('DOMContentLoaded', wireNav);
 })();
+
+// Disponibilité du stock : lue depuis l'onglet "Stock" du Sheet (édité à la main
+// par le client), avec un cache court pour éviter d'appeler l'API à chaque page.
+window.ArcanaStock = (function () {
+    const CACHE_KEY = 'tarotlens_stock_cache';
+    const TTL_MS = 5 * 60 * 1000;
+    let data = null;
+
+    function readCache() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(CACHE_KEY));
+            if (!parsed || Date.now() - parsed.ts > TTL_MS) return null;
+            return parsed.stock;
+        } catch { return null; }
+    }
+
+    function writeCache(stock) {
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), stock })); } catch { /* stockage indisponible, tant pis */ }
+    }
+
+    async function load() {
+        const cached = readCache();
+        if (cached) { data = cached; return data; }
+        try {
+            const res = await fetch(window.TAROTLENS_ENDPOINT);
+            const json = await res.json();
+            if (json.ok) { data = json.stock; writeCache(data); }
+        } catch { /* stock indisponible : le frontend retombe sur le flag inStock statique */ }
+        return data;
+    }
+
+    // null = produit non suivi dans l'onglet "Stock" -> le frontend retombe sur data.js
+    function qty(id) {
+        if (!data) return null;
+        const v = data[id];
+        return typeof v === 'number' ? v : null;
+    }
+
+    return { load, qty };
+})();

@@ -1,7 +1,36 @@
 // TAROTLENS — reçoit les commandes (panier.js) et les inscriptions "prévenez-moi du
-// retour en stock" (index.html), et les ajoute au Google Sheet. À coller dans
-// Extensions > Apps Script du Sheet cible, puis déployer en Web App
+// retour en stock" (index.html), les ajoute au Google Sheet, envoie un e-mail de
+// commande, sert la disponibilité du stock et le catalogue produits, et expose
+// l'API admin (admin.html : commandes, stock, produits, upload photos).
+// À coller dans Extensions > Apps Script du Sheet cible, puis déployer en Web App
 // (Exécuter en tant que : Moi — Accès : Tous). Voir le README à côté de ce fichier.
+//
+// Onglets attendus dans le Sheet :
+//   - "Commandes"       : archive des commandes (remplie automatiquement). Colonnes :
+//                         date, nom, email, tel, adresse, articles, sous-total,
+//                         langue, statut (Nouvelle/Expédiée/Annulée).
+//   - "Intérêts stock"  : inscriptions "prévenez-moi" (remplie automatiquement).
+//   - "Stock"           : colonnes [id, nom, quantité disponible], éditable à la
+//                         main ou depuis admin.html. Une ligne par produit.
+//   - "Produits"        : catalogue complet, éditable depuis admin.html (ou à la
+//                         main). Ligne d'en-tête exacte : voir PRODUITS_ENTETES
+//                         ci-dessous. Colonne "images" = URLs séparées par "|",
+//                         la première sert de visuel de couverture.
+
+var ORDER_NOTIFY_EMAIL = 'TarotLens129@gmail.com';
+
+// Sel fixe combiné à la clé admin avant hachage (défense en profondeur contre les
+// rainbow tables ; la clé elle-même n'est jamais stockée en clair, voir definirCleAdmin).
+var SALT = 'tarotlens-once-famous-4ever-fabulous';
+
+var STATUTS_COMMANDE = ['Nouvelle', 'Expédiée', 'Annulée'];
+
+var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
+    'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
+    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock'];
+
+var DOSSIER_PHOTOS = 'TarotLens - Photos produits';
+var TAILLE_MAX_PHOTO = 8 * 1024 * 1024; // 8 Mo décodés
 
 // Comparaison tolérante aux accents mal encodés (NFC/NFD) et aux espaces
 // parasites, pour ne jamais retomber silencieusement sur getActiveSheet().
@@ -14,11 +43,651 @@ function findSheet(ss, name) {
     return null;
 }
 
+/* ==================== Menu ==================== */
+
+// Liste de secours pour verifierOngletStock, utilisée uniquement si l'onglet
+// "Produits" n'existe pas encore (avant le tout premier import).
+var PRODUITS_ATTENDUS_SECOURS = [
+    { id: 1, nom: 'Has Been Tarot' },
+    { id: 2, nom: 'Too Much Lenormand' },
+    { id: 3, nom: 'Too Much Tarot' },
+    { id: 4, nom: 'Bundle' },
+];
+
+function onOpen() {
+    SpreadsheetApp.getUi()
+        .createMenu('TarotLens')
+        .addItem('Vérifier l\'onglet Stock', 'verifierOngletStock')
+        .addSeparator()
+        .addItem('Importer les produits depuis data.js (1x)', 'importerProduitsDepuisDataJs')
+        .addSeparator()
+        .addItem('Définir la clé admin', 'definirCleAdmin')
+        .addToUi();
+}
+
+function produitsAttendusPourDiagnostic(ss) {
+    var sh = findSheet(ss, 'Produits');
+    if (sh) {
+        try {
+            return listerProduits(ss).map(function (p) { return { id: p.id, nom: p.name }; });
+        } catch (e) { /* tombe sur la liste de secours ci-dessous */ }
+    }
+    return PRODUITS_ATTENDUS_SECOURS;
+}
+
+// Diagnostic manuel : relit l'onglet "Stock" comme le fait doGet, et affiche
+// ce qui sera réellement renvoyé au frontend (lignes lues, ids manquants,
+// quantités non numériques), pour éviter de redécouvrir un stock vide après coup.
+function verifierOngletStock() {
+    var ui = SpreadsheetApp.getUi();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var stockSheet = findSheet(ss, 'Stock');
+
+    if (!stockSheet) {
+        ui.alert('Onglet "Stock" introuvable. Onglets existants : '
+            + ss.getSheets().map(function (s) { return '[' + s.getName() + ']'; }).join(', '));
+        return;
+    }
+
+    var rows = stockSheet.getDataRange().getValues();
+    var trouves = {};
+    var qtyInvalides = [];
+
+    for (var i = 1; i < rows.length; i++) {
+        var id = rows[i][0];
+        var nom = rows[i][1];
+        var qty = rows[i][2];
+        if (id === '' || id === null) continue;
+        trouves[id] = qty;
+        if (typeof qty !== 'number') qtyInvalides.push('ligne ' + (i + 1) + ' (id ' + id + ' "' + nom + '") : "' + qty + '"');
+    }
+
+    var lignes = ['Onglet "Stock" trouvé (' + (rows.length - 1) + ' ligne(s) sous l\'en-tête).', ''];
+
+    produitsAttendusPourDiagnostic(ss).forEach(function (p) {
+        if (Object.prototype.hasOwnProperty.call(trouves, p.id)) {
+            lignes.push('✓ id ' + p.id + ' (' + p.nom + ') : ' + trouves[p.id]);
+        } else {
+            lignes.push('✗ id ' + p.id + ' (' + p.nom + ') : AUCUNE LIGNE — restera sur le flag inStock statique de data.js');
+        }
+    });
+
+    if (qtyInvalides.length) {
+        lignes.push('', 'Quantités non numériques (traitées comme 0 par doGet) :');
+        lignes.push.apply(lignes, qtyInvalides);
+    }
+
+    ui.alert(lignes.join('\n'));
+}
+
+/* ==================== Auth admin ==================== */
+
+function hacherCleAdmin(cle) {
+    var octets = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(cle || '') + '|' + SALT);
+    return octets.map(function (o) { return ('0' + (o & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function getAdminKeyHash() {
+    return PropertiesService.getScriptProperties().getProperty('ADMIN_KEY_HASH') || '';
+}
+
+function definirCleAdmin() {
+    var ui = SpreadsheetApp.getUi();
+    var actuelle = getAdminKeyHash();
+    var r = ui.prompt(
+        actuelle ? 'Changer la clé admin' : 'Définir la clé admin',
+        'Clé à saisir dans admin.html pour se connecter (choisis une phrase difficile à deviner) :'
+        + (actuelle ? '\n\nUne clé existe déjà : la saisir ici la remplace immédiatement.' : ''),
+        ui.ButtonSet.OK_CANCEL);
+    if (r.getSelectedButton() !== ui.Button.OK) return;
+    var cle = String(r.getResponseText()).trim();
+    if (!cle) { ui.alert('Clé vide : abandon.'); return; }
+    PropertiesService.getScriptProperties().setProperty('ADMIN_KEY_HASH', hacherCleAdmin(cle));
+    ui.alert('Clé admin enregistrée (jamais conservée en clair).\n\nSaisis-la dans admin.html pour t\'y connecter.');
+}
+
+/* ==================== Helpers Sheet <-> objets ==================== */
+
+function zip(headers, valeurs) {
+    var obj = {};
+    headers.forEach(function (h, idx) { if (h) obj[h] = valeurs[idx]; });
+    return obj;
+}
+
+function sheetToObjects(sheet) {
+    var rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return [];
+    var headers = rows[0].map(function (h) { return String(h).trim(); });
+    var out = [];
+    for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        var vide = row.every(function (v) { return v === '' || v === null; });
+        if (vide) continue;
+        out.push(zip(headers, row));
+    }
+    return out;
+}
+
+function texteOuNull(v) {
+    var s = String(v === null || v === undefined ? '' : v).trim();
+    return s === '' ? null : s;
+}
+
+/* ==================== Produits ==================== */
+
+function getSheetProduits(ss) {
+    var sh = findSheet(ss, 'Produits');
+    if (!sh) {
+        throw new Error('Onglet "Produits" introuvable. Crée-le avec la ligne d\'en-tête : '
+            + PRODUITS_ENTETES.join(' | '));
+    }
+    return sh;
+}
+
+function produitDepuisLigne(o) {
+    var images = String(o.images || '').split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+    return {
+        id: Number(o.id),
+        cat: String(o.cat || '').trim(),
+        name: String(o.name || '').trim(),
+        name_en: texteOuNull(o.name_en),
+        tag: String(o.tag || '').trim(),
+        tag_en: texteOuNull(o.tag_en),
+        cards: (o.cards === '' || o.cards === null || o.cards === undefined) ? null : Number(o.cards),
+        format: texteOuNull(o.format),
+        format_en: texteOuNull(o.format_en),
+        weight: texteOuNull(o.weight),
+        weight_en: texteOuNull(o.weight_en),
+        delivery: texteOuNull(o.delivery),
+        delivery_en: texteOuNull(o.delivery_en),
+        price: Number(o.price) || 0,
+        badge: texteOuNull(o.badge),
+        glyph: String(o.glyph || '✦').trim(),
+        grad: String(o.grad || 'g-generic').trim(),
+        img: images[0] || '',
+        images: images,
+        desc: String(o.desc || ''),
+        desc_en: texteOuNull(o.desc_en),
+        inStock: !(o.inStock === false || String(o.inStock).toUpperCase() === 'FAUX' || String(o.inStock).toUpperCase() === 'FALSE'),
+    };
+}
+
+// L'ordre d'affichage sur le site suit l'ordre des lignes dans le Sheet (pas un
+// tri par id) : ça laisse le client réordonner ses produits en glissant des
+// lignes, comme dans un tableur classique.
+function listerProduits(ss) {
+    var sh = getSheetProduits(ss);
+    return sheetToObjects(sh).map(produitDepuisLigne);
+}
+
+function viderCacheProduits() {
+    CacheService.getScriptCache().remove('produits_v1');
+}
+
+function sauvegarderProduit(ss, p) {
+    var sh = getSheetProduits(ss);
+    var rows = sh.getDataRange().getValues();
+    var headers = (rows[0] || PRODUITS_ENTETES).map(function (h) { return String(h).trim(); });
+    var idCol = headers.indexOf('id');
+    if (idCol < 0) throw new Error('Colonne "id" introuvable dans l\'onglet Produits.');
+
+    var id = p.id ? Number(p.id) : 0;
+    var ligneIdx = -1;
+    if (id) {
+        for (var i = 1; i < rows.length; i++) {
+            if (Number(rows[i][idCol]) === id) { ligneIdx = i; break; }
+        }
+    }
+    if (!id) {
+        var maxId = 0;
+        for (var j = 1; j < rows.length; j++) {
+            var v = Number(rows[j][idCol]);
+            if (v > maxId) maxId = v;
+        }
+        id = maxId + 1;
+    }
+
+    var valeurs = headers.map(function (h) {
+        if (h === 'id') return id;
+        if (h === 'images') return (p.images || []).join('|');
+        if (h === 'inStock') return p.inStock !== false;
+        var v = p[h];
+        return (v === undefined || v === null) ? '' : v;
+    });
+
+    if (ligneIdx >= 0) {
+        sh.getRange(ligneIdx + 1, 1, 1, headers.length).setValues([valeurs]);
+    } else {
+        sh.appendRow(valeurs);
+    }
+
+    viderCacheProduits();
+    return produitDepuisLigne(zip(headers, valeurs));
+}
+
+function supprimerProduit(ss, id) {
+    var sh = getSheetProduits(ss);
+    var rows = sh.getDataRange().getValues();
+    var headers = rows[0].map(function (h) { return String(h).trim(); });
+    var idCol = headers.indexOf('id');
+    for (var i = 1; i < rows.length; i++) {
+        if (Number(rows[i][idCol]) === Number(id)) {
+            sh.deleteRow(i + 1);
+            viderCacheProduits();
+            return;
+        }
+    }
+    throw new Error('Produit id ' + id + ' introuvable.');
+}
+
+// Échange la ligne du produit avec sa voisine (haut/bas) : c'est l'ordre des
+// lignes qui pilote l'ordre d'affichage sur le site (voir listerProduits()).
+function deplacerProduit(ss, id, sens) {
+    var sh = getSheetProduits(ss);
+    var rows = sh.getDataRange().getValues();
+    var idCol = rows[0].map(function (h) { return String(h).trim(); }).indexOf('id');
+    if (idCol < 0) throw new Error('Colonne "id" introuvable dans l\'onglet Produits.');
+
+    var idx = -1;
+    for (var i = 1; i < rows.length; i++) {
+        if (Number(rows[i][idCol]) === Number(id)) { idx = i; break; }
+    }
+    if (idx < 0) throw new Error('Produit id ' + id + ' introuvable.');
+
+    var cible = sens === 'up' ? idx - 1 : idx + 1;
+    if (cible < 1 || cible >= rows.length) return; // déjà en haut/bas de la liste
+
+    var nbCols = rows[0].length;
+    var ligneA = sh.getRange(idx + 1, 1, 1, nbCols).getValues();
+    var ligneB = sh.getRange(cible + 1, 1, 1, nbCols).getValues();
+    sh.getRange(idx + 1, 1, 1, nbCols).setValues(ligneB);
+    sh.getRange(cible + 1, 1, 1, nbCols).setValues(ligneA);
+    viderCacheProduits();
+}
+
+function actionProduitsPublic() {
+    var cache = CacheService.getScriptCache();
+    var enCache = cache.get('produits_v1');
+    if (enCache) return JSON.parse(enCache);
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = findSheet(ss, 'Produits');
+    if (!sh) return { ok: false, error: 'Onglet "Produits" introuvable.' };
+
+    var produits = listerProduits(ss);
+    if (!produits.length) return { ok: false, error: 'Onglet "Produits" vide.' };
+
+    var resultat = { ok: true, produits: produits };
+    cache.put('produits_v1', JSON.stringify(resultat), 60);
+    return resultat;
+}
+
+/* ==================== Import initial depuis data.js ==================== */
+
+function importerProduitsDepuisDataJs() {
+    var ui = SpreadsheetApp.getUi();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = findSheet(ss, 'Produits');
+    if (!sh) {
+        ui.alert('Onglet "Produits" introuvable. Crée-le d\'abord avec la ligne d\'en-tête :\n\n' + PRODUITS_ENTETES.join(' | '));
+        return;
+    }
+
+    var rows = sh.getDataRange().getValues();
+    if (rows.length > 1) {
+        var r = ui.alert('Remplacer le contenu de "Produits" ?',
+            'L\'onglet contient déjà ' + (rows.length - 1) + ' ligne(s). Les remplacer par les '
+            + PRODUITS_IMPORT.length + ' produits d\'origine (data.js) ? Toute modification déjà faite dans le Sheet sera perdue.',
+            ui.ButtonSet.OK_CANCEL);
+        if (r !== ui.Button.OK) return;
+        sh.deleteRows(2, rows.length - 1);
+    }
+
+    sh.getRange(1, 1, 1, PRODUITS_ENTETES.length).setValues([PRODUITS_ENTETES]);
+
+    var lignes = PRODUITS_IMPORT.map(function (p) {
+        return PRODUITS_ENTETES.map(function (h) {
+            if (h === 'images') return p.images.join('|');
+            var v = p[h];
+            return (v === undefined || v === null) ? '' : v;
+        });
+    });
+    sh.getRange(2, 1, lignes.length, PRODUITS_ENTETES.length).setValues(lignes);
+    viderCacheProduits();
+
+    ui.alert(lignes.length + ' produit(s) importé(s) dans l\'onglet "Produits".');
+}
+
+// Ordre volontaire (pas par id croissant) : reproduit l'ordre d'affichage
+// actuel du site (Too Much Tarot, Has Been Tarot, Too Much Lenormand, Bundle),
+// piloté par l'ordre des lignes du Sheet — voir listerProduits().
+var PRODUITS_IMPORT = [
+    {
+        id: 3, cat: 'deck', name: 'Too Much Tarot', name_en: '', tag: 'Tarot', tag_en: '',
+        cards: 82, format: 'Standard 70×120mm', format_en: '', weight: '350g papier, finition Soft Touch',
+        weight_en: '350g paper, Soft Touch finish', delivery: "Livré sans boîte, dans un bandana trop beau ;)",
+        delivery_en: "No box, delivered in a gorgeous bandana ;)", price: 58, badge: null, glyph: '✶', grad: 'g-toomuch',
+        desc: "Des couleurs, des paillettes, du glitter, de la nostalgie… et toujours absolument aucun sens de la mesure.\n\nLe Too Much Tarot revisite les 78 arcanes du tarot dans un univers pop, coloré et délicieusement kitsch.\n\nBecause Too Much is never enough. 🍬",
+        desc_en: "Colors, sequins, glitter, nostalgia… and still absolutely no sense of moderation.\n\nThe Too Much Tarot reimagines the 78 tarot arcana in a pop, colorful and deliciously kitsch universe.\n\nBecause Too Much is never enough. 🍬",
+        images: ['images/toomuch-card.jpg', 'videos/toomuch-hero.mp4', 'videos/toomuch-detail.mp4'],
+        inStock: true,
+    },
+    {
+        id: 1, cat: 'deck', name: 'Has Been Tarot', name_en: '', tag: 'Tarot', tag_en: '',
+        cards: 87, format: 'Poker 63×89mm', format_en: '', weight: '310g finition Soft Touch',
+        weight_en: '310g Soft Touch finish', delivery: 'Pas de boîte / Pochon ou carré en tissu',
+        delivery_en: 'No box / fabric pouch or square', price: 59, badge: 'new', glyph: '✺', grad: 'g-hasbeen',
+        desc: "Comme son nom l'indique, c'est un tarot inspiré de tous ces objets oubliés... BUT, Once famous, 4ever Fabulous\n\n87 cartes remplies de nostalgie, de couleurs et de kitch. De quoi rendre jaloux la Gen Z\n\nGuidebook PDF avec mots-clés, explications des associations et du sens de la carte + une chanson culte pour accompagner chaque carte\n\nSi tu envoyais des Wizz sur MSN pendant que tu terminais ton article sur ton Skyblog « Mii$$TarOt.du75 »\nSi tu as oublié de le nourrir ton Tamagotchi pendant trois jours\nSi tu as voulu un Furby mais qu'au fond il te faisait un peu flipper\nSi tu téléchargeais Britney pendant 4 heures sur LimeWire pour découvrir que c'était la mauvaise version\nSi tu penses que tu aurais dû écouter ta mère quand elle t'a dit que cette paire de Buffalo était moche\nAlors ce deck est pour toi",
+        desc_en: "As the name suggests, this is a tarot inspired by all those things everyone's forgotten... BUT, Once famous, 4ever Fabulous\n\n87 cards packed with nostalgia, color and kitsch. Enough to make Gen Z jealous\n\nPDF guidebook with keywords, explanations of the associations and meaning of each card + a cult song to go with every card\n\nIf you used to send Wizz on MSN Messenger while finishing your post on your blog \"Mii$$TarOt.du75\"\nIf you forgot to feed your Tamagotchi for three days straight\nIf you wanted a Furby but deep down it kind of freaked you out\nIf you downloaded Britney for 4 hours on LimeWire only to find out it was the wrong version\nIf you think you should've listened to your mum when she said those Buffalo boots were ugly\nThen this deck is for you",
+        images: ['images/hasbeen-card.jpg', 'images/hasbeen-2.jpg', 'images/hasbeen-3.jpg', 'images/hasbeen-4.jpg', 'images/hasbeen-5.jpg', 'images/hasbeen-6.jpg', 'images/hasbeen-7.jpg', 'images/hasbeen-detail.jpg', 'videos/hasbeen-hero.mp4'],
+        inStock: true,
+    },
+    {
+        id: 2, cat: 'deck', name: 'Too Much Lenormand', name_en: '', tag: 'Lenormand', tag_en: '',
+        cards: 46, format: 'Poker', format_en: '', weight: '310g finition Soft Touch',
+        weight_en: '310g Soft Touch finish', delivery: 'Livré sans boîte, avec un pochon en tissu',
+        delivery_en: 'No box, delivered with a fabric pouch', price: 37, badge: 'new', glyph: '❉', grad: 'g-lenormand',
+        desc: "Des couleurs, des paillettes, du glitter, du kitsch et absolument aucun sens de la mesure.\nLe Too Much Lenormand est le petit frère du Too Much Tarot : plus petit, mais tout aussi Kitch\n\nBecause Too Much is never enough",
+        desc_en: "Colors, sequins, glitter, kitsch and absolutely no sense of moderation.\nThe Too Much Lenormand is the little sibling of the Too Much Tarot: smaller, but just as Kitsch\n\nBecause Too Much is never enough",
+        images: ['images/lenormand-card.jpg', 'images/lenormand-2.jpg', 'images/lenormand-3.jpg', 'images/lenormand-4.jpg', 'images/lenormand-5.jpg', 'videos/lenormand-hero.mp4', 'videos/lenormand-detail.mp4'],
+        inStock: true,
+    },
+    {
+        id: 4, cat: 'bundle', name: 'Bundle', name_en: '', tag: 'Bundle', tag_en: '',
+        cards: null, format: null, format_en: '', weight: null, weight_en: '',
+        delivery: 'Too Much Lenormand + Has Been Tarot', delivery_en: '', price: 88, badge: null, glyph: '✦', grad: 'g-bundle',
+        desc: "Deux univers TarotLens, une seule commande. Le Bundle réunit le Has Been Tarot, nostalgique et kitsch à souhait — Once famous, 4ever Fabulous — et le Too Much Lenormand, tout en paillettes, glitter et couleurs, parce que Too Much is never enough.\n\n133 cartes cumulées pour tirer aussi bien un tarot chargé de souvenirs qu'un Lenormand pétillant et sans aucune retenue.",
+        desc_en: "Two TarotLens worlds, one single order. The Bundle brings together the Has Been Tarot — nostalgic and kitsch to the max, Once famous, 4ever Fabulous — and the Too Much Lenormand, all sequins, glitter and color, because Too Much is never enough.\n\n133 cards combined, for pulling both a tarot loaded with memories and a Lenormand that's sparkly and holds absolutely nothing back.",
+        images: ['images/bundle-card.jpg', 'images/bundle-2.jpg'],
+        inStock: true,
+    },
+    {
+        id: 5, cat: 'accessory', name: 'Bougie Martini', name_en: 'Martini Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '5" L × 7,5" H | 9 fl oz', format_en: '5" L × 7.5" H | 9 fl oz', weight: null, weight_en: '',
+        delivery: 'Récipient : verre à martini — Type de cire : gel', delivery_en: 'Container: martini glass — Wax type: gel',
+        price: 29, badge: null, glyph: '✿', grad: 'g-acc1',
+        desc: "Audacieuse et vivifiante, cette bougie d'inspiration cocktail classique dégage une sophistication discrète avec une touche d'intrigue.\n\nCoulée à la main avec une cire gel de qualité supérieure, 100% naturelle et sans parabène, et une mèche en coton, présentée dans notre verrerie réutilisable et conçue pour être rechargée à l'aide de nos kits de recharge, alliant indulgence et durabilité.\n\nParfum : Sans parfum",
+        desc_en: "Bold and invigorating, this classic cocktail-inspired candle gives off understated sophistication with a touch of intrigue.\n\nHand-poured with premium gel wax, 100% natural and paraben-free, with a cotton wick, presented in our reusable glassware designed to be refilled with our refill kits — combining indulgence with sustainability.\n\nScent: Unscented",
+        images: ['images/Bougies/bougie-martini.jpg'],
+        inStock: true,
+    },
+    {
+        id: 6, cat: 'accessory', name: 'Bougie Matcha Latte', name_en: 'Matcha Latte Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '10 oz', format_en: '', weight: null, weight_en: '',
+        delivery: 'Récipient : bocal en verre transparent — Type de cire : base coco et glaçons en cire-gel',
+        delivery_en: 'Container: clear glass jar — Wax type: coconut base with gel-wax ice cubes',
+        price: 29, badge: null, glyph: '✿', grad: 'g-acc2',
+        desc: "Le matcha vert frais se mêle à une crème légèrement sucrée, révélant de subtiles notes herbacées et une finale douce et veloutée, inspirée du classique café rafraîchissant. De réalistes glaçons en cire-gel flottent à la surface, apportant une touche ludique.\n\nVersée à la main avec de la cire en gel et une base de cire de noix de coco premium, 100% naturelles et sans parabènes, et une mèche en coton, présentée dans un bocal en verre réutilisable et conçue pour être renouvelée avec nos kits de recharge, alliant indulgence et durabilité.\n\nParfum : Latte à la vanille — un expresso riche se mêle à une vanille soyeuse et à un lait velouté, créant un arôme doux et réconfortant.",
+        desc_en: "Fresh green matcha blends with a lightly sweetened cream, revealing subtle herbal notes and a soft, velvety finish inspired by the classic iced café drink. Realistic gel-wax ice cubes float on the surface for a playful touch.\n\nHand-poured with gel wax and a premium coconut wax base, 100% natural and paraben-free, with a cotton wick, presented in a reusable glass jar designed to be topped up with our refill kits — combining indulgence with sustainability.\n\nScent: Vanilla Latte — a rich espresso meets silky vanilla and velvety milk, creating a warm, comforting aroma.",
+        images: ['images/Bougies/bougie-matcha.jpg'],
+        inStock: true,
+    },
+    {
+        id: 7, cat: 'accessory', name: 'Bougie Ube Latte', name_en: 'Ube Latte Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '5" L × 7,5" H | 9 fl oz', format_en: '5" L × 7.5" H | 9 fl oz', weight: null, weight_en: '',
+        delivery: 'Récipient : verre à martini — Type de cire : gel', delivery_en: 'Container: martini glass — Wax type: gel',
+        price: 29, badge: null, glyph: '✿', grad: 'g-acc3',
+        desc: "Audacieuse et vivifiante, cette bougie d'inspiration cocktail classique dégage une sophistication discrète avec une touche d'intrigue.\n\nCoulée à la main avec une cire gel de qualité supérieure, 100% naturelle et sans parabène, et une mèche en coton, présentée dans notre verrerie réutilisable et conçue pour être rechargée à l'aide de nos kits de recharge, alliant indulgence et durabilité.\n\nParfum : Sans parfum",
+        desc_en: "Bold and invigorating, this classic cocktail-inspired candle gives off understated sophistication with a touch of intrigue.\n\nHand-poured with premium gel wax, 100% natural and paraben-free, with a cotton wick, presented in our reusable glassware designed to be refilled with our refill kits — combining indulgence with sustainability.\n\nScent: Unscented",
+        images: ['images/Bougies/bougie-ube.jpg'],
+        inStock: true,
+    },
+    {
+        id: 8, cat: 'accessory', name: 'Bougie Tomate', name_en: 'Tomato Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '3,5" L × 3,5" × 3" H', format_en: '3.5" L × 3.5" × 3" H', weight: '250g', weight_en: '',
+        delivery: "Type de cire : cire d'abeille", delivery_en: 'Wax type: beeswax',
+        price: 13, badge: null, glyph: '✿', grad: 'g-acc4',
+        desc: "Inattendue de la meilleure des manières, cette bougie mise sur la beauté discrète d'une tomate parfaitement imparfaite.\n\nTerreuse, fraîche et légèrement nostalgique, elle apporte une subtile touche de jardin à l'intérieur.\n\nVersée à la main avec de la cire d'abeille premium, 100% naturelle, et une mèche en coton, cette bougie décorative offre une combustion propre et homogène tout en conciliant impact sculptural et savoir-faire raffiné.\n\nParfum : Sans parfum",
+        desc_en: "Unexpected in the best possible way, this candle celebrates the quiet beauty of a perfectly imperfect tomato.\n\nEarthy, fresh and gently nostalgic, it brings a subtle touch of the garden indoors.\n\nHand-poured with premium, 100% natural beeswax and a cotton wick, this decorative candle offers a clean, even burn while combining sculptural impact with refined craftsmanship.\n\nScent: Unscented",
+        images: ['images/Bougies/bougie-tomate.jpg'],
+        inStock: true,
+    },
+    {
+        id: 9, cat: 'accessory', name: 'Bougie Orange', name_en: 'Orange Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '3" L × 2,8" × 2" H', format_en: '3" L × 2.8" × 2" H', weight: '300g', weight_en: '',
+        delivery: "Type de cire : cire d'abeille", delivery_en: 'Wax type: beeswax',
+        price: 13, badge: null, glyph: '✿', grad: 'g-acc5',
+        desc: "Cette bougie orange évoque une bouffée de soleil matinal. Ludique, fraîche, elle rend instantanément n'importe quel coin plus joyeux.\n\nCoulée à la main en cire d'abeille 100% naturelle et de qualité supérieure avec une mèche en coton, cette bougie décorative offre une combustion propre et régulière tout en conciliant impact sculptural et savoir-faire raffiné.\n\nParfum : à choisir parmi les options disponibles",
+        desc_en: "This orange candle evokes a burst of morning sunshine. Playful and fresh, it instantly brightens up any corner.\n\nHand-poured in premium, 100% natural beeswax with a cotton wick, this decorative candle offers a clean, steady burn while combining sculptural impact with refined craftsmanship.\n\nScent: choose from the available options",
+        images: ['images/Bougies/bougie-orange.jpg'],
+        inStock: true,
+    },
+    {
+        id: 10, cat: 'accessory', name: 'Bougie Citron', name_en: 'Lemon Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '3" L × 2,5" × 2" H', format_en: '3" L × 2.5" × 2" H', weight: '300g', weight_en: '',
+        delivery: "Type de cire : cire d'abeille", delivery_en: 'Wax type: beeswax',
+        price: 13, badge: null, glyph: '✿', grad: 'g-acc6',
+        desc: "Net et éclatant, ce bougeoir-citron apporte une touche d'énergie là où vous le posez. C'est un petit coup de fouet zesté pour votre intérieur. Également disponible en vert, tout aussi vivifiant, saveur lime.\n\nVersé à la main avec de la cire d'abeille naturelle de qualité supérieure et une mèche en coton, ce bougeoir décoratif offre une combustion propre et régulière tout en alliant impact sculptural et savoir-faire raffiné.\n\nParfum : choisissez parmi les options disponibles",
+        desc_en: "Crisp and bright, this lemon candle holder brings a burst of energy wherever you place it. It's a little zesty pick-me-up for your home. Also available in green, just as invigorating, lime scent.\n\nHand-poured with premium natural beeswax and a cotton wick, this decorative candle holder offers a clean, steady burn while combining sculptural impact with refined craftsmanship.\n\nScent: choose from the available options",
+        images: ['images/Bougies/bougie-citron.jpg'],
+        inStock: false,
+    },
+    {
+        id: 11, cat: 'accessory', name: 'Bougie Fraise', name_en: 'Strawberry Candle', tag: 'Accessoire', tag_en: 'Accessory',
+        cards: null, format: '5" L × 7,5" H | 9 fl oz', format_en: '5" L × 7.5" H | 9 fl oz', weight: null, weight_en: '',
+        delivery: 'Type de cire : gel — vendu par 4', delivery_en: 'Wax type: gel — sold as a set of 4',
+        price: 12, badge: null, glyph: '✿', grad: 'g-acc7',
+        desc: "Audacieuse et vivifiante, cette bougie d'inspiration cocktail classique dégage une sophistication discrète avec une touche d'intrigue.\n\nCoulée à la main avec une cire gel de qualité supérieure, 100% naturelle et sans parabène, et une mèche en coton, présentée dans notre verrerie réutilisable et conçue pour être rechargée à l'aide de nos kits de recharge, alliant indulgence et durabilité.\n\nParfum : Sans parfum",
+        desc_en: "Bold and invigorating, this classic cocktail-inspired candle gives off understated sophistication with a touch of intrigue.\n\nHand-poured with premium gel wax, 100% natural and paraben-free, with a cotton wick, presented in our reusable glassware designed to be refilled with our refill kits — combining indulgence with sustainability.\n\nScent: Unscented",
+        images: ['images/Bougies/bougie-fraise.jpg'],
+        inStock: true,
+    },
+];
+
+/* ==================== Commandes (admin) ==================== */
+
+function listerCommandesBrutes(sheet) {
+    var rows = sheet.getDataRange().getValues();
+    var out = [];
+    var debut = 0;
+    if (rows.length && !(rows[0][0] instanceof Date)) debut = 1; // ligne d'en-tête probable
+    for (var i = debut; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r[1] && !r[2]) continue; // ni nom ni email -> ligne vide
+        out.push({
+            row: i + 1,
+            date: (r[0] instanceof Date) ? r[0].toISOString() : String(r[0] || ''),
+            name: r[1] || '', email: r[2] || '', phone: r[3] || '', address: r[4] || '',
+            items: r[5] || '', subtotal: r[6] || '', lang: r[7] || '', statut: r[8] || 'Nouvelle',
+        });
+    }
+    out.reverse();
+    return out;
+}
+
+function definirStatutCommande(ss, row, statut) {
+    if (STATUTS_COMMANDE.indexOf(statut) < 0) throw new Error('Statut invalide : ' + statut);
+    var sh = findSheet(ss, 'Commandes');
+    if (!sh) throw new Error('Onglet "Commandes" introuvable.');
+    if (!row || row < 1) throw new Error('Ligne invalide.');
+    sh.getRange(row, 9).setValue(statut);
+}
+
+/* ==================== Stock (admin) ==================== */
+
+function listerStock(ss) {
+    var sh = findSheet(ss, 'Stock');
+    if (!sh) return [];
+    var rows = sh.getDataRange().getValues();
+    var out = [];
+    for (var i = 1; i < rows.length; i++) {
+        var id = rows[i][0];
+        if (id === '' || id === null) continue;
+        out.push({ id: Number(id), nom: rows[i][1] || '', qty: typeof rows[i][2] === 'number' ? rows[i][2] : 0 });
+    }
+    return out;
+}
+
+function definirStock(ss, id, nom, qty) {
+    var sh = findSheet(ss, 'Stock');
+    if (!sh) throw new Error('Onglet "Stock" introuvable.');
+    var rows = sh.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+        if (String(rows[i][0]) === String(id)) {
+            sh.getRange(i + 1, 3).setValue(Number(qty) || 0);
+            return;
+        }
+    }
+    sh.appendRow([Number(id), nom || '', Number(qty) || 0]);
+}
+
+/* ==================== Upload photos (Drive) ==================== */
+
+function obtenirDossierPhotos() {
+    var dossiers = DriveApp.getFoldersByName(DOSSIER_PHOTOS);
+    if (dossiers.hasNext()) return dossiers.next();
+    return DriveApp.createFolder(DOSSIER_PHOTOS);
+}
+
+function televerserPhoto(filename, mimeType, base64) {
+    if (!/^image\//.test(String(mimeType || ''))) {
+        throw new Error('Seules les images sont acceptées ici (vidéos : coller une URL/chemin dans le champ dédié).');
+    }
+    var octets = Utilities.base64Decode(base64);
+    if (octets.length > TAILLE_MAX_PHOTO) throw new Error('Image trop lourde (8 Mo max).');
+    var blob = Utilities.newBlob(octets, mimeType, filename || 'photo.jpg');
+    var fichier = obtenirDossierPhotos().createFile(blob);
+    fichier.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return 'https://lh3.googleusercontent.com/d/' + fichier.getId();
+}
+
+/* ==================== Dispatch API (action) ==================== */
+
+function handleAction(p) {
+    try {
+        var action = String(p.action || '');
+        if (action === 'produits') return actionProduitsPublic();
+
+        if (action.indexOf('admin') === 0) {
+            var isAdmin = !!(p.ak && hacherCleAdmin(p.ak) === getAdminKeyHash());
+            if (!isAdmin) return { ok: false, error: 'auth' };
+            return handleAdmin(action, p);
+        }
+
+        return { ok: false, error: 'Action inconnue : ' + action };
+    } catch (err) {
+        return { ok: false, error: String(err) };
+    }
+}
+
+function handleAdmin(action, p) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    switch (action) {
+        case 'adminLogin':
+            return { ok: true };
+        case 'adminListProduits':
+            return { ok: true, produits: listerProduits(ss) };
+        case 'adminSaveProduit':
+            return { ok: true, produit: sauvegarderProduit(ss, p.produit || {}) };
+        case 'adminDeleteProduit':
+            supprimerProduit(ss, p.id);
+            return { ok: true };
+        case 'adminMoveProduit':
+            deplacerProduit(ss, p.id, String(p.sens || ''));
+            return { ok: true };
+        case 'adminUploadPhoto':
+            return { ok: true, url: televerserPhoto(p.filename, p.mimeType, p.data) };
+        case 'adminListCommandes':
+            var shCommandes = findSheet(ss, 'Commandes');
+            if (!shCommandes) throw new Error('Onglet "Commandes" introuvable.');
+            return { ok: true, commandes: listerCommandesBrutes(shCommandes) };
+        case 'adminSetStatutCommande':
+            definirStatutCommande(ss, Number(p.row), String(p.statut || ''));
+            return { ok: true };
+        case 'adminListStock':
+            return { ok: true, stock: listerStock(ss) };
+        case 'adminSetStock':
+            definirStock(ss, p.id, p.nom, p.qty);
+            return { ok: true };
+        default:
+            return { ok: false, error: 'Action admin inconnue : ' + action };
+    }
+}
+
+/* ==================== doGet / doPost ==================== */
+
+function doGet(e) {
+    var p = (e && e.parameter) ? e.parameter : {};
+
+    // Nouveau : seule l'action publique "produits" est accessible en GET.
+    // Les actions admin exigent un POST (la clé ne doit jamais transiter par l'URL).
+    if (p.action) {
+        var resultat = (p.action === 'produits')
+            ? actionProduitsPublic()
+            : { ok: false, error: 'Cette action nécessite une requête POST.' };
+        return ContentService
+            .createTextOutput(JSON.stringify(resultat))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Chemin existant, inchangé : disponibilité du stock (ArcanaStock côté frontend).
+    try {
+        var ss = SpreadsheetApp.getActiveSpreadsheet();
+        var stockSheet = findSheet(ss, 'Stock');
+        var stock = {};
+        if (stockSheet) {
+            var rows = stockSheet.getDataRange().getValues();
+            // Ligne 0 = en-têtes (id, nom, quantité disponible) — on l'ignore.
+            for (var i = 1; i < rows.length; i++) {
+                var id = rows[i][0];
+                var qty = rows[i][2];
+                if (id === '' || id === null) continue;
+                stock[id] = typeof qty === 'number' ? qty : 0;
+            }
+        }
+        return ContentService
+            .createTextOutput(JSON.stringify({ ok: true, stock: stock }))
+            .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+        return ContentService
+            .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+}
+
+function sendOrderEmail(data) {
+    var lines = (data.items || []).map(function (it) {
+        return '- ' + it.name + ' x' + it.qty + (it.price ? ' (' + (it.price * it.qty).toFixed(2) + ' €)' : '');
+    }).join('\n');
+
+    var body = 'Nouvelle commande TarotLens\n\n'
+        + 'Nom : ' + (data.name || '') + '\n'
+        + 'E-mail : ' + (data.email || '') + '\n'
+        + 'Téléphone : ' + (data.phone || '') + '\n'
+        + 'Adresse : ' + (data.address || '') + '\n\n'
+        + 'Articles :\n' + lines + '\n\n'
+        + 'Sous-total : ' + (data.subtotal || '') + ' €\n'
+        + 'Langue : ' + (data.lang || '') + '\n';
+
+    MailApp.sendEmail({
+        to: ORDER_NOTIFY_EMAIL,
+        subject: 'Nouvelle commande — ' + (data.name || 'client'),
+        body: body,
+        replyTo: data.email || undefined,
+    });
+}
+
 function doPost(e) {
+    var data;
+    try {
+        data = JSON.parse(e.postData.contents);
+    } catch (err) {
+        return ContentService
+            .createTextOutput(JSON.stringify({ ok: false, error: 'Requête illisible.' }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Nouveau : toutes les actions "produits"/"admin*" (admin.html) passent par ici.
+    if (data.action) {
+        return ContentService
+            .createTextOutput(JSON.stringify(handleAction(data)))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Chemin existant, inchangé : commandes (panier.js) et inscriptions "prévenez-moi" (index.html).
     var lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
-        var data = JSON.parse(e.postData.contents);
         var ss = SpreadsheetApp.getActiveSpreadsheet();
 
         if (data.type === 'stock_interest') {
@@ -48,7 +717,10 @@ function doPost(e) {
                 itemsSummary,
                 data.subtotal || '',
                 data.lang || '',
+                'Nouvelle',
             ]);
+
+            sendOrderEmail(data);
         }
 
         return ContentService

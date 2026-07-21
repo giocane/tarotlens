@@ -1,5 +1,6 @@
 .DS_Store
 *.zip
+dist/
 
 # Rushes bruts (photos/vidéos sources non utilisées par le site)
 images/Has Been Tarot/

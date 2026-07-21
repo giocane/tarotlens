@@ -1,7 +1,15 @@
 // TAROTLENS — données produits
 // Rupture de stock : ajouter `inStock: false,` sur le produit concerné (absent = en stock).
+// Si le produit a une ligne dans l'onglet "Stock" du Sheet (quantité gérée à la
+// main par le client, voir google-apps-script/Code.gs), cette quantité prend le
+// pas sur `inStock` pour l'affichage frontend (rupture, stock faible, dispo).
 window.PRODUCTS = [
-    // ── DECKS ──
+    // ── DECKS ── (ordre d'affichage volontaire, pas par id croissant)
+    { id: 3, name: "Too Much Tarot",      tag: "Tarot",      cat: "deck",      cards: 82, format: "Standard 70×120mm",  weight: "350g papier, finition Soft Touch", delivery: "Livré sans boîte, dans un bandana trop beau ;)",             price: 58, badge: null,  glyph: "✶", grad: "g-toomuch",   img: "images/toomuch-card.jpg",
+      images: ["images/toomuch-card.jpg", "videos/toomuch-hero.mp4", "videos/toomuch-detail.mp4"],
+      weight_en: "350g paper, Soft Touch finish", delivery_en: "No box, delivered in a gorgeous bandana ;)",
+      desc: "Des couleurs, des paillettes, du glitter, de la nostalgie… et toujours absolument aucun sens de la mesure.\n\nLe Too Much Tarot revisite les 78 arcanes du tarot dans un univers pop, coloré et délicieusement kitsch.\n\nBecause Too Much is never enough. 🍬",
+      desc_en: "Colors, sequins, glitter, nostalgia… and still absolutely no sense of moderation.\n\nThe Too Much Tarot reimagines the 78 tarot arcana in a pop, colorful and deliciously kitsch universe.\n\nBecause Too Much is never enough. 🍬" },
     { id: 1, name: "Has Been Tarot",      tag: "Tarot",      cat: "deck",      cards: 87, format: "Poker 63×89mm",      weight: "310g finition Soft Touch", delivery: "Pas de boîte / Pochon ou carré en tissu",                          price: 59, badge: "new", glyph: "✺", grad: "g-hasbeen",  img: "images/hasbeen-card.jpg",
       images: ["images/hasbeen-card.jpg", "images/hasbeen-2.jpg", "images/hasbeen-3.jpg", "images/hasbeen-4.jpg", "images/hasbeen-5.jpg", "images/hasbeen-6.jpg", "images/hasbeen-7.jpg", "images/hasbeen-detail.jpg", "videos/hasbeen-hero.mp4"],
       weight_en: "310g Soft Touch finish", delivery_en: "No box / fabric pouch or square",
@@ -12,11 +20,6 @@ window.PRODUCTS = [
       weight_en: "310g Soft Touch finish", delivery_en: "No box, delivered with a fabric pouch",
       desc: "Des couleurs, des paillettes, du glitter, du kitsch et absolument aucun sens de la mesure.\nLe Too Much Lenormand est le petit frère du Too Much Tarot : plus petit, mais tout aussi Kitch\n\nBecause Too Much is never enough",
       desc_en: "Colors, sequins, glitter, kitsch and absolutely no sense of moderation.\nThe Too Much Lenormand is the little sibling of the Too Much Tarot: smaller, but just as Kitsch\n\nBecause Too Much is never enough" },
-    { id: 3, name: "Too Much Tarot",      tag: "Tarot",      cat: "deck",      cards: 82, format: "Standard 70×120mm",  weight: "350g papier, finition Soft Touch", delivery: "Livré sans boîte, dans un bandana trop beau ;)",             price: 58, badge: null,  glyph: "✶", grad: "g-toomuch",   img: "images/toomuch-card.jpg",
-      images: ["images/toomuch-card.jpg", "videos/toomuch-hero.mp4", "videos/toomuch-detail.mp4"],
-      weight_en: "350g paper, Soft Touch finish", delivery_en: "No box, delivered in a gorgeous bandana ;)",
-      desc: "Des couleurs, des paillettes, du glitter, de la nostalgie… et toujours absolument aucun sens de la mesure.\n\nLe Too Much Tarot revisite les 78 arcanes du tarot dans un univers pop, coloré et délicieusement kitsch.\n\nBecause Too Much is never enough. 🍬",
-      desc_en: "Colors, sequins, glitter, nostalgia… and still absolutely no sense of moderation.\n\nThe Too Much Tarot reimagines the 78 tarot arcana in a pop, colorful and deliciously kitsch universe.\n\nBecause Too Much is never enough. 🍬" },
     { id: 4, name: "Bundle",              tag: "Bundle",     cat: "bundle",    cards: null, format: null,               weight: null,                       delivery: "Too Much Lenormand + Has Been Tarot",                             price: 88, badge: null,  glyph: "✦", grad: "g-bundle",    img: "images/bundle-card.jpg",
       images: ["images/bundle-card.jpg", "images/bundle-2.jpg"],
       desc: "Deux univers TarotLens, une seule commande. Le Bundle réunit le Has Been Tarot, nostalgique et kitsch à souhait — Once famous, 4ever Fabulous — et le Too Much Lenormand, tout en paillettes, glitter et couleurs, parce que Too Much is never enough.\n\n133 cartes cumulées pour tirer aussi bien un tarot chargé de souvenirs qu'un Lenormand pétillant et sans aucune retenue.",

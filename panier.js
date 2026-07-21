@@ -128,3 +128,6 @@ async function submitOrder(e, items, subtotal) {
 }
 
 render();
+// Rafraîchit noms/tags avec le catalogue live une fois chargé (window.PRODUCTS
+// est déjà réassigné par ArcanaProducts.load() ; on ne fait que redéclencher render()).
+window.ArcanaProducts.load().then(produits => { if (produits) render(); });
