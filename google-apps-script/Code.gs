@@ -8,7 +8,10 @@
 // Onglets attendus dans le Sheet :
 //   - "Commandes"       : archive des commandes (remplie automatiquement). Colonnes :
 //                         date, nom, email, tel, adresse, articles, sous-total,
-//                         langue, statut (Nouvelle/Expédiée/Annulée).
+//                         langue, statut (voir STATUTS_COMMANDE), numéro de suivi
+//                         (rempli seulement au statut Expédié). Chaque changement de
+//                         statut (sauf Annulée) envoie un e-mail auto au client dans
+//                         sa langue — voir MAILS_STATUT_COMMANDE.
 //   - "Intérêts stock"  : inscriptions "prévenez-moi" (remplie automatiquement).
 //   - "Stock"           : colonnes [id, nom, quantité disponible], éditable à la
 //                         main ou depuis admin.html. Une ligne par produit.
@@ -23,7 +26,36 @@ var ORDER_NOTIFY_EMAIL = 'TarotLens129@gmail.com';
 // rainbow tables ; la clé elle-même n'est jamais stockée en clair, voir definirCleAdmin).
 var SALT = 'tarotlens-once-famous-4ever-fabulous';
 
-var STATUTS_COMMANDE = ['Nouvelle', 'Expédiée', 'Annulée'];
+var STATUTS_COMMANDE = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié', 'Annulée'];
+
+// Statuts qui déclenchent un e-mail automatique au client (voir
+// envoyerMailStatutCommande) — Annulée est un statut interne, pas notifié.
+var STATUTS_NOTIFIES = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
+
+// Contenu des e-mails de suivi de commande, par statut et par langue.
+// {name} et {suivi} sont substitués dans le corps.
+var MAILS_STATUT_COMMANDE = {
+    'Commande reçue': {
+        fr: { subject: 'TarotLens — commande reçue', body: 'Bonjour {name},\n\nNous avons bien reçu votre commande, merci ! Elle est en cours de traitement, nous vous tiendrons informé(e) de son avancement.\n\nÀ bientôt,\nL\'équipe TarotLens' },
+        en: { subject: 'TarotLens — order received', body: 'Hi {name},\n\nWe\'ve received your order, thank you! It\'s now being processed and we\'ll keep you posted on its progress.\n\nSee you soon,\nThe TarotLens team' },
+    },
+    'Paiement validé': {
+        fr: { subject: 'TarotLens — paiement validé', body: 'Bonjour {name},\n\nVotre paiement a bien été validé. Votre commande va maintenant être préparée.\n\nÀ bientôt,\nL\'équipe TarotLens' },
+        en: { subject: 'TarotLens — payment confirmed', body: 'Hi {name},\n\nYour payment has been confirmed. Your order will now be prepared.\n\nSee you soon,\nThe TarotLens team' },
+    },
+    'En préparation': {
+        fr: { subject: 'TarotLens — commande en préparation', body: 'Bonjour {name},\n\nVotre commande est en cours de préparation, elle sera bientôt expédiée.\n\nÀ bientôt,\nL\'équipe TarotLens' },
+        en: { subject: 'TarotLens — order being prepared', body: 'Hi {name},\n\nYour order is now being prepared and will be shipped soon.\n\nSee you soon,\nThe TarotLens team' },
+    },
+    'Expédié': {
+        fr: { subject: 'TarotLens — commande expédiée', body: 'Bonjour {name},\n\nVotre commande a été expédiée !\n\nNuméro de suivi : {suivi}\n\nÀ bientôt,\nL\'équipe TarotLens' },
+        en: { subject: 'TarotLens — order shipped', body: 'Hi {name},\n\nYour order has been shipped!\n\nTracking number: {suivi}\n\nSee you soon,\nThe TarotLens team' },
+    },
+};
+
+// Quantité à partir de laquelle un produit est signalé "stock faible" dans le
+// digest quotidien (voir envoyerDigestQuotidien).
+var SEUIL_STOCK_FAIBLE = 2;
 
 var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
     'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
@@ -62,6 +94,8 @@ function onOpen() {
         .addItem('Importer les produits depuis data.js (1x)', 'importerProduitsDepuisDataJs')
         .addSeparator()
         .addItem('Définir la clé admin', 'definirCleAdmin')
+        .addSeparator()
+        .addItem('Installer les automatisations (digest quotidien)', 'installerAutomatisations')
         .addToUi();
 }
 
@@ -488,19 +522,40 @@ function listerCommandesBrutes(sheet) {
             row: i + 1,
             date: (r[0] instanceof Date) ? r[0].toISOString() : String(r[0] || ''),
             name: r[1] || '', email: r[2] || '', phone: r[3] || '', address: r[4] || '',
-            items: r[5] || '', subtotal: r[6] || '', lang: r[7] || '', statut: r[8] || 'Nouvelle',
+            items: r[5] || '', subtotal: r[6] || '', lang: r[7] || '', statut: r[8] || 'Commande reçue',
+            suivi: r[9] || '',
         });
     }
     out.reverse();
     return out;
 }
 
-function definirStatutCommande(ss, row, statut) {
+// Envoie au client l'e-mail de suivi correspondant au nouveau statut, dans la
+// langue de sa commande (repli sur le français si langue inconnue).
+function envoyerMailStatutCommande(commande, statut, suivi) {
+    if (STATUTS_NOTIFIES.indexOf(statut) < 0) return; // ex. Annulée : pas de mail auto
+    if (!commande.email) return;
+    var tpl = MAILS_STATUT_COMMANDE[statut];
+    var lang = (String(commande.lang || '').toLowerCase() === 'en') ? 'en' : 'fr';
+    var texte = tpl[lang];
+    var body = texte.body
+        .replace('{name}', commande.name || '')
+        .replace('{suivi}', suivi || '');
+    MailApp.sendEmail({ to: commande.email, subject: texte.subject, body: body, replyTo: ORDER_NOTIFY_EMAIL });
+}
+
+function definirStatutCommande(ss, row, statut, suivi) {
     if (STATUTS_COMMANDE.indexOf(statut) < 0) throw new Error('Statut invalide : ' + statut);
+    if (statut === 'Expédié' && !String(suivi || '').trim()) throw new Error('Numéro de suivi requis pour le statut Expédié.');
     var sh = findSheet(ss, 'Commandes');
     if (!sh) throw new Error('Onglet "Commandes" introuvable.');
     if (!row || row < 1) throw new Error('Ligne invalide.');
+
     sh.getRange(row, 9).setValue(statut);
+    if (statut === 'Expédié') sh.getRange(row, 10).setValue(String(suivi || '').trim());
+
+    var r = sh.getRange(row, 1, 1, 8).getValues()[0];
+    envoyerMailStatutCommande({ name: r[1], email: r[2], lang: r[7] }, statut, suivi);
 }
 
 /* ==================== Stock (admin) ==================== */
@@ -529,6 +584,94 @@ function definirStock(ss, id, nom, qty) {
         }
     }
     sh.appendRow([Number(id), nom || '', Number(qty) || 0]);
+}
+
+/* ==================== Digest quotidien (automatisation) ==================== */
+
+function listerInteretsStock(ss) {
+    var sh = findSheet(ss, 'Intérêts stock');
+    if (!sh) return [];
+    var rows = sh.getDataRange().getValues();
+    var out = [];
+    var debut = 0;
+    if (rows.length && !(rows[0][0] instanceof Date)) debut = 1; // ligne d'en-tête probable
+    for (var i = debut; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r[1] && !r[2]) continue; // ni email ni produit -> ligne vide
+        out.push({ date: r[0], email: r[1] || '', product: r[2] || '', lang: r[3] || '' });
+    }
+    return out;
+}
+
+// Digest cumulatif (pas de delta) : à chaque envoi, l'e-mail reliste tout ce
+// qui est encore d'actualité — rupture/stock faible lus depuis l'onglet
+// "Stock", demandes "prévenez-moi" lues en entier depuis "Intérêts stock" (pas
+// de colonne "traité" pour filtrer, donc la liste reste complète tant que la
+// ligne n'est pas supprimée à la main). Aucun e-mail n'est envoyé si les trois
+// listes sont vides.
+function envoyerDigestQuotidien() {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var stock = listerStock(ss);
+    var epuises = stock.filter(function (s) { return s.qty === 0; });
+    var faibles = stock.filter(function (s) { return s.qty > 0 && s.qty <= SEUIL_STOCK_FAIBLE; });
+    var interets = listerInteretsStock(ss);
+
+    if (!epuises.length && !faibles.length && !interets.length) return;
+
+    var lignes = ['Digest TarotLens — '
+        + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy'), ''];
+
+    if (epuises.length) {
+        lignes.push('RUPTURE DE STOCK :');
+        epuises.forEach(function (s) { lignes.push('- ' + s.nom + ' (id ' + s.id + ')'); });
+        lignes.push('');
+    }
+
+    if (faibles.length) {
+        lignes.push('STOCK FAIBLE (≤ ' + SEUIL_STOCK_FAIBLE + ') :');
+        faibles.forEach(function (s) { lignes.push('- ' + s.nom + ' (id ' + s.id + ') : ' + s.qty); });
+        lignes.push('');
+    }
+
+    if (interets.length) {
+        lignes.push('DEMANDES "PRÉVENEZ-MOI DU RETOUR EN STOCK" EN ATTENTE (' + interets.length + ') :');
+        var parProduit = {};
+        interets.forEach(function (it) {
+            var cle = it.product || '(produit non précisé)';
+            (parProduit[cle] = parProduit[cle] || []).push(it.email);
+        });
+        Object.keys(parProduit).forEach(function (prod) {
+            lignes.push('- ' + prod + ' : ' + parProduit[prod].join(', '));
+        });
+        lignes.push('', 'Pour retirer une demande traitée, supprime sa ligne dans l\'onglet "Intérêts stock".');
+    }
+
+    MailApp.sendEmail({
+        to: ORDER_NOTIFY_EMAIL,
+        subject: 'TarotLens — digest quotidien (' + (epuises.length + faibles.length) + ' produit(s), ' + interets.length + ' demande(s))',
+        body: lignes.join('\n'),
+    });
+}
+
+// Installe le déclencheur temporel (1x/jour, ~8h). Garde-fou anti-doublon :
+// si un déclencheur pour envoyerDigestQuotidien existe déjà, ne recrée rien.
+function installerAutomatisations() {
+    var ui = SpreadsheetApp.getUi();
+    var dejaInstalle = ScriptApp.getProjectTriggers().some(function (t) {
+        return t.getHandlerFunction() === 'envoyerDigestQuotidien';
+    });
+    if (dejaInstalle) {
+        ui.alert('Le digest quotidien est déjà installé (une exécution automatique par jour).');
+        return;
+    }
+    ScriptApp.newTrigger('envoyerDigestQuotidien')
+        .timeBased()
+        .everyDays(1)
+        .atHour(8)
+        .create();
+    ui.alert('Digest quotidien installé : un e-mail sera envoyé chaque matin vers 8h à '
+        + ORDER_NOTIFY_EMAIL + ' s\'il y a du stock épuisé/faible ou des demandes "prévenez-moi" en attente.'
+        + '\n\nRien n\'est envoyé les jours où tout va bien.');
 }
 
 /* ==================== Upload photos (Drive) ==================== */
@@ -592,7 +735,7 @@ function handleAdmin(action, p) {
             if (!shCommandes) throw new Error('Onglet "Commandes" introuvable.');
             return { ok: true, commandes: listerCommandesBrutes(shCommandes) };
         case 'adminSetStatutCommande':
-            definirStatutCommande(ss, Number(p.row), String(p.statut || ''));
+            definirStatutCommande(ss, Number(p.row), String(p.statut || ''), String(p.suivi || ''));
             return { ok: true };
         case 'adminListStock':
             return { ok: true, stock: listerStock(ss) };
@@ -717,7 +860,8 @@ function doPost(e) {
                 itemsSummary,
                 data.subtotal || '',
                 data.lang || '',
-                'Nouvelle',
+                'Commande reçue',
+                '',
             ]);
 
             sendOrderEmail(data);

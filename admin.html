@@ -82,9 +82,11 @@
 
         /* Statuts + filtre */
         .admin-badge-statut { display: inline-block; padding: 3px 10px; border-radius: 980px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-        .admin-badge-statut.Nouvelle { background: #fce8b3; color: #7a4706; }
-        .admin-badge-statut.Expédiée { background: #b3efd3; color: #04502e; }
-        .admin-badge-statut.Annulée { background: #fbd3e0; color: #822111; }
+        .admin-badge-statut.statut-recue { background: #fce8b3; color: #7a4706; }
+        .admin-badge-statut.statut-paye { background: #cfe8fc; color: #0a4a7a; }
+        .admin-badge-statut.statut-prepa { background: #e5d9fb; color: #4b1a82; }
+        .admin-badge-statut.statut-expedie { background: #b3efd3; color: #04502e; }
+        .admin-badge-statut.statut-annulee { background: #fbd3e0; color: #822111; }
         tr.admin-row-new td { background: rgba(232,78,10,.05); }
         .admin-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .admin-row-low td:nth-child(2) { color: #c0392b; font-weight: 700; }
@@ -149,8 +151,10 @@
                     <span class="admin-muted" id="commandesCount"></span>
                     <select class="admin-field" id="filtreStatut" style="width:auto">
                         <option value="">Tous les statuts</option>
-                        <option value="Nouvelle">Nouvelle</option>
-                        <option value="Expédiée">Expédiée</option>
+                        <option value="Commande reçue">Commande reçue</option>
+                        <option value="Paiement validé">Paiement validé</option>
+                        <option value="En préparation">En préparation</option>
+                        <option value="Expédié">Expédié</option>
                         <option value="Annulée">Annulée</option>
                     </select>
                 </div>
@@ -160,7 +164,7 @@
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead>
-                        <tr><th>Date</th><th>Client</th><th>Contact</th><th>Adresse</th><th>Articles</th><th>Montant</th><th>Langue</th><th>Statut</th></tr>
+                        <tr><th>Date</th><th>Client</th><th>Contact</th><th>Adresse</th><th>Articles</th><th>Montant</th><th>Langue</th><th>Statut</th><th>Suivi</th></tr>
                     </thead>
                     <tbody id="commandesBody"></tbody>
                 </table>
@@ -245,7 +249,16 @@
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
 const KEY_STORAGE = 'tarotlens_admin_key';
-const STATUTS = ['Nouvelle', 'Expédiée', 'Annulée'];
+const STATUTS = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié', 'Annulée'];
+// Espaces/accents dans les libellés de statut -> pas utilisables tels quels comme
+// classe CSS (un espace scinderait en plusieurs classes), d'où cette table.
+const STATUT_CLASSES = {
+    'Commande reçue': 'statut-recue',
+    'Paiement validé': 'statut-paye',
+    'En préparation': 'statut-prepa',
+    'Expédié': 'statut-expedie',
+    'Annulée': 'statut-annulee',
+};
 
 const getCle = () => { try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } };
 const setCle = (v) => { try { localStorage.setItem(KEY_STORAGE, v); } catch { /* stockage indisponible */ } };
@@ -334,7 +347,7 @@ async function chargerDashboard() {
 
     const actives = commandes.filter(c => c.statut !== 'Annulée');
     const ca = actives.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
-    const nouvelles = commandes.filter(c => c.statut === 'Nouvelle').length;
+    const nouvelles = commandes.filter(c => c.statut === 'Commande reçue').length;
 
     document.getElementById('dashboardStats').innerHTML = `
         <div class="admin-stat-card"><div class="admin-stat-value">${ca.toFixed(2)} €</div><div class="admin-stat-label">CA (hors annulées)</div></div>
@@ -358,7 +371,7 @@ async function chargerDashboard() {
     elCommandes.innerHTML = recentes.length ? recentes.map(c => `
         <div class="admin-alert-row">
             <span>${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''} — ${escapeHTML(c.name)}</span>
-            <span><span class="admin-badge-statut ${c.statut}">${c.statut}</span></span>
+            <span><span class="admin-badge-statut ${STATUT_CLASSES[c.statut] || ''}">${escapeHTML(c.statut)}</span></span>
         </div>`).join('') : '<p class="admin-alert-empty">Aucune commande.</p>';
 }
 document.querySelectorAll('.admin-tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -369,11 +382,25 @@ let commandesCache = [];
 
 async function chargerCommandes() {
     const el = document.getElementById('commandesBody');
-    el.innerHTML = '<tr><td colspan="8">Chargement…</td></tr>';
+    el.innerHTML = '<tr><td colspan="9">Chargement…</td></tr>';
     const rep = await api('adminListCommandes');
-    if (!rep.ok) { el.innerHTML = `<tr><td colspan="8">Erreur : ${escapeHTML(rep.error)}</td></tr>`; return; }
+    if (!rep.ok) { el.innerHTML = `<tr><td colspan="9">Erreur : ${escapeHTML(rep.error)}</td></tr>`; return; }
     commandesCache = rep.commandes;
     renderCommandes();
+}
+
+// Change le statut d'une commande et notifie le résultat ; si un numéro de
+// suivi est fourni (statut Expédié), on le renvoie aussi pour être stocké.
+async function enregistrerStatut(row, statut, suivi) {
+    const rep = await api('adminSetStatutCommande', { row, statut, suivi: suivi || '' });
+    if (rep.ok) {
+        toast('Statut mis à jour, client notifié par e-mail.');
+        const c = commandesCache.find(x => x.row === row);
+        if (c) { c.statut = statut; if (suivi) c.suivi = suivi; }
+        renderCommandes();
+    } else {
+        toast(rep.error, true);
+    }
 }
 
 function renderCommandes() {
@@ -382,13 +409,13 @@ function renderCommandes() {
     const lignes = filtre ? commandesCache.filter(c => c.statut === filtre) : commandesCache;
     document.getElementById('commandesCount').textContent = lignes.length + ' / ' + commandesCache.length + ' commande(s)';
 
-    if (!lignes.length) { el.innerHTML = '<tr><td colspan="8">Aucune commande.</td></tr>'; return; }
+    if (!lignes.length) { el.innerHTML = '<tr><td colspan="9">Aucune commande.</td></tr>'; return; }
     el.innerHTML = lignes.map(c => {
         const sujet = encodeURIComponent('TarotLens — à propos de votre commande');
         const corps = encodeURIComponent(`Bonjour ${c.name || ''},\n\n`);
         const mailtoHref = c.email ? `mailto:${c.email}?subject=${sujet}&body=${corps}` : '';
         return `
-        <tr class="${c.statut === 'Nouvelle' ? 'admin-row-new' : ''}">
+        <tr class="${c.statut === 'Commande reçue' ? 'admin-row-new' : ''}">
             <td>${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''}</td>
             <td>${escapeHTML(c.name)}<br><span class="admin-muted">${escapeHTML(c.email)}</span></td>
             <td>${escapeHTML(c.phone) || '—'}${mailtoHref ? `<br><a class="btn btn-ghost sm" style="margin-top:4px;display:inline-block" href="${escapeHTML(mailtoHref)}">Contacter</a>` : ''}</td>
@@ -401,19 +428,32 @@ function renderCommandes() {
                     ${STATUTS.map(s => `<option value="${s}" ${s === c.statut ? 'selected' : ''}>${s}</option>`).join('')}
                 </select>
             </td>
+            <td>${c.suivi ? escapeHTML(c.suivi) : `
+                <div class="admin-suivi-input" data-row="${c.row}" style="display:${c.statut === 'Expédié' ? 'flex' : 'none'};gap:6px;align-items:center">
+                    <input class="admin-field" style="width:110px" placeholder="N° suivi" data-suivi-input="${c.row}">
+                    <button type="button" class="btn btn-ghost sm" data-suivi-confirm="${c.row}">OK</button>
+                </div>`}</td>
         </tr>`;
     }).join('');
     el.querySelectorAll('.admin-select-statut').forEach(sel => {
-        sel.addEventListener('change', async () => {
-            const rep = await api('adminSetStatutCommande', { row: +sel.dataset.row, statut: sel.value });
-            if (rep.ok) {
-                toast('Statut mis à jour.');
-                const c = commandesCache.find(x => x.row === +sel.dataset.row);
-                if (c) c.statut = sel.value;
-                renderCommandes();
-            } else {
-                toast(rep.error, true);
+        sel.addEventListener('change', () => {
+            const row = +sel.dataset.row;
+            const c = commandesCache.find(x => x.row === row);
+            if (sel.value === 'Expédié' && !(c && c.suivi)) {
+                const zone = el.querySelector(`.admin-suivi-input[data-row="${row}"]`);
+                if (zone) { zone.style.display = 'flex'; zone.querySelector('input').focus(); }
+                return;
             }
+            enregistrerStatut(row, sel.value, c ? c.suivi : '');
+        });
+    });
+    el.querySelectorAll('[data-suivi-confirm]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const row = +btn.dataset.suiviConfirm;
+            const input = el.querySelector(`[data-suivi-input="${row}"]`);
+            const suivi = input.value.trim();
+            if (!suivi) { input.focus(); return; }
+            enregistrerStatut(row, 'Expédié', suivi);
         });
     });
 }
@@ -424,6 +464,7 @@ const COLONNES_COMMANDES = [
     { cle: 'date', libelle: 'Date' }, { cle: 'name', libelle: 'Nom' }, { cle: 'email', libelle: 'Email' },
     { cle: 'phone', libelle: 'Téléphone' }, { cle: 'address', libelle: 'Adresse' }, { cle: 'items', libelle: 'Articles' },
     { cle: 'subtotal', libelle: 'Sous-total' }, { cle: 'lang', libelle: 'Langue' }, { cle: 'statut', libelle: 'Statut' },
+    { cle: 'suivi', libelle: 'N° de suivi' },
 ];
 
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
