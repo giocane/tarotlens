@@ -48,7 +48,7 @@
         <a href="#decks" class="btn btn-orange" data-i18n="hero_cta">PRE ORDER HERE</a>
     </div>
     <div class="hero-media">
-        <video src="videos/hasbeen-hero.mp4" autoplay muted loop playsinline></video>
+        <video data-src="videos/hasbeen-hero.mp4" preload="none" muted loop playsinline></video>
     </div>
 </section>
 
@@ -59,7 +59,7 @@
         <a href="#decks" class="btn btn-orange" data-i18n="hero_cta">PRE ORDER HERE</a>
     </div>
     <div class="hero-media">
-        <video src="videos/lenormand-hero.mp4" autoplay muted loop playsinline></video>
+        <video data-src="videos/lenormand-hero.mp4" preload="none" muted loop playsinline></video>
     </div>
 </section>
 
@@ -70,7 +70,7 @@
         <a href="#decks" class="btn btn-orange" data-i18n="hero_cta">PRE ORDER HERE</a>
     </div>
     <div class="hero-media">
-        <video src="videos/toomuch-hero.mp4" autoplay muted loop playsinline></video>
+        <video data-src="videos/toomuch-hero.mp4" preload="none" muted loop playsinline></video>
     </div>
 </section>
 
@@ -96,7 +96,7 @@
 <footer class="footer">
     <div class="footer-inner">
         <div class="footer-holo">
-            <img src="images/footer-bloc.jpg" alt="">
+            <img src="images/footer-bloc.jpg" alt="" loading="lazy">
         </div>
         <div class="footer-info">
             <p data-i18n="footer_contactLine">Me contacter si vous avez des questions</p>
@@ -168,6 +168,23 @@ const nav = document.getElementById('nav');
 window.addEventListener('scroll', () => {
     nav.style.boxShadow = window.scrollY > 8 ? '0 4px 20px rgba(0,0,0,.15)' : 'none';
 }, { passive: true });
+
+// Vidéos hero : ne se chargent (data-src -> src) et ne jouent qu'à l'entrée
+// dans le viewport, et se remettent en pause en sortant — jusqu'ici les 3
+// (jusqu'à 23 Mo chacune) partaient en autoplay dès le chargement de la
+// page, y compris celles hors écran.
+const heroVideoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        const video = entry.target;
+        if (entry.isIntersecting) {
+            if (!video.src && video.dataset.src) video.src = video.dataset.src;
+            video.play().catch(() => {});
+        } else {
+            video.pause();
+        }
+    });
+}, { threshold: 0.25 });
+document.querySelectorAll('.hero-media video[data-src]').forEach(v => heroVideoObserver.observe(v));
 
 // Add to cart
 const toast = document.getElementById('toast');
@@ -289,7 +306,7 @@ function renderProducts(products) {
                 <span class="prod-card-price">${p.price} €</span>
             </div>
             <div class="prod-card-media">
-                <img src="${p.img}" alt="${pick(p, 'name')}">
+                <img src="${p.img}" alt="${pick(p, 'name')}" loading="lazy">
             </div>
             <div class="prod-card-actions">
                 <button type="button" class="btn btn-magenta sm" data-action="add">${t('btn_addToCart')}</button>
