@@ -159,6 +159,7 @@
                         <option value="Expédié">Expédiée</option>
                         <option value="Annulée">Annulée</option>
                     </select>
+                    <label class="admin-checkbox-row" style="margin-left:8px"><input type="checkbox" id="afficherArchivees"> Afficher les archivées</label>
                 </div>
                 <button type="button" class="btn btn-ghost sm" id="refreshCommandesBtn">Actualiser</button>
                 <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
@@ -397,6 +398,17 @@ document.querySelectorAll('.admin-tab-btn').forEach(b => b.addEventListener('cli
 
 let commandesCache = [];
 
+// Archivage des commandes Expédié/Annulée : purement visuel côté admin (pas
+// de colonne Sheet), stocké dans ce navigateur. Clé = empreinte de contenu
+// (pas c.row) pour rester valide même si des lignes sont supprimées/décalées
+// dans le Sheet entre deux visites.
+const ARCHIVE_KEY = 'tarotlens_commandes_archivees';
+function empreinteCommande(c) { return [c.date, c.email, c.items, c.subtotal].join('|'); }
+function getArchivees() {
+    try { return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY)) || []); } catch { return new Set(); }
+}
+function saveArchivees(set) { localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...set])); }
+
 async function chargerCommandes() {
     const el = document.getElementById('commandesBody');
     el.innerHTML = '<tr><td colspan="10">Chargement…</td></tr>';
@@ -425,14 +437,21 @@ async function enregistrerStatut(row, statut, suivi) {
 function renderCommandes() {
     const el = document.getElementById('commandesBody');
     const filtre = document.getElementById('filtreStatut').value;
-    const lignes = filtre ? commandesCache.filter(c => c.statut === filtre) : commandesCache;
-    document.getElementById('commandesCount').textContent = lignes.length + ' / ' + commandesCache.length + ' commande(s)';
+    const afficherArchivees = document.getElementById('afficherArchivees').checked;
+    const archivees = getArchivees();
+    let lignes = filtre ? commandesCache.filter(c => c.statut === filtre) : commandesCache;
+    lignes = lignes.filter(c => archivees.has(empreinteCommande(c)) === afficherArchivees);
+    const nbArchivees = commandesCache.filter(c => archivees.has(empreinteCommande(c))).length;
+    document.getElementById('commandesCount').textContent = lignes.length + ' / ' + commandesCache.length + ' commande(s)'
+        + (nbArchivees ? ` (${nbArchivees} archivée(s)${afficherArchivees ? '' : ', masquée(s)'})` : '');
 
     if (!lignes.length) { el.innerHTML = '<tr><td colspan="10">Aucune commande.</td></tr>'; return; }
     el.innerHTML = lignes.map(c => {
         const sujet = encodeURIComponent('TarotLens — à propos de votre commande');
         const corps = encodeURIComponent(`Bonjour ${c.name || ''},\n\n`);
         const mailtoHref = c.email ? `mailto:${c.email}?subject=${sujet}&body=${corps}` : '';
+        const peutArchiver = c.statut === 'Expédié' || c.statut === 'Annulée';
+        const estArchivee = archivees.has(empreinteCommande(c));
         return `
         <tr class="${c.statut === 'Commande reçue' ? 'admin-row-new' : ''}">
             <td>${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''}</td>
@@ -452,7 +471,12 @@ function renderCommandes() {
                     <input class="admin-field" style="width:110px" placeholder="N° suivi" data-suivi-input="${c.row}">
                     <button type="button" class="btn btn-ghost sm" data-suivi-confirm="${c.row}">OK</button>
                 </div>`}</td>
-            <td><button type="button" class="btn btn-ghost sm" style="color:#c0392b;border-color:#c0392b" data-delete-commande="${c.row}">Suppr.</button></td>
+            <td>
+                ${estArchivee
+                    ? `<button type="button" class="btn btn-ghost sm" data-unarchive-commande="${c.row}">Désarchiver</button>`
+                    : (peutArchiver ? `<button type="button" class="btn btn-ghost sm" data-archive-commande="${c.row}">Archiver</button>` : '')}
+                <button type="button" class="btn btn-ghost sm" style="color:#c0392b;border-color:#c0392b" data-delete-commande="${c.row}">Suppr.</button>
+            </td>
         </tr>`;
     }).join('');
     el.querySelectorAll('.admin-select-statut').forEach(sel => {
@@ -492,9 +516,32 @@ function renderCommandes() {
             }
         });
     });
+    el.querySelectorAll('[data-archive-commande]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const row = +btn.dataset.archiveCommande;
+            const c = commandesCache.find(x => x.row === row);
+            if (!c) return;
+            const archivees = getArchivees();
+            archivees.add(empreinteCommande(c));
+            saveArchivees(archivees);
+            renderCommandes();
+        });
+    });
+    el.querySelectorAll('[data-unarchive-commande]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const row = +btn.dataset.unarchiveCommande;
+            const c = commandesCache.find(x => x.row === row);
+            if (!c) return;
+            const archivees = getArchivees();
+            archivees.delete(empreinteCommande(c));
+            saveArchivees(archivees);
+            renderCommandes();
+        });
+    });
 }
 
 document.getElementById('filtreStatut').addEventListener('change', renderCommandes);
+document.getElementById('afficherArchivees').addEventListener('change', renderCommandes);
 document.getElementById('refreshCommandesBtn').addEventListener('click', chargerCommandes);
 
 const COLONNES_COMMANDES = [
