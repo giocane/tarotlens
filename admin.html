@@ -372,12 +372,14 @@ async function chargerDashboard() {
 
     const alertes = produits.filter(p => {
         const qty = stockParId[p.id];
-        return p.inStock === false || (typeof qty === 'number' && qty <= 3);
+        const tracked = typeof qty === 'number';
+        return tracked ? qty <= 3 : p.inStock === false;
     });
     const elAlertes = document.getElementById('dashboardStockAlert');
     elAlertes.innerHTML = alertes.length ? alertes.map(p => {
         const qty = stockParId[p.id];
-        const label = p.inStock === false ? 'Marqué en rupture' : `Plus que ${qty} en stock`;
+        const tracked = typeof qty === 'number';
+        const label = tracked ? `Plus que ${qty} en stock` : 'Marqué en rupture';
         return `<div class="admin-alert-row"><span>${escapeHTML(p.name)}</span><span>${label}</span></div>`;
     }).join('') : '<p class="admin-alert-empty">Rien à signaler.</p>';
 
@@ -583,6 +585,12 @@ async function chargerProduits() {
     renderProduitsListe();
 }
 
+function badgeRupture(p) {
+    const qty = stockParIdCache[p.id];
+    if (typeof qty === 'number') return qty <= 0 ? ' — rupture (stock: 0)' : '';
+    return p.inStock === false ? ' — marqué en rupture' : '';
+}
+
 function renderProduitsListe() {
     const el = document.getElementById('produitsListe');
     if (!produitsCache.length) { el.innerHTML = '<p class="admin-muted">Aucun produit pour l\'instant.</p>'; return; }
@@ -595,7 +603,7 @@ function renderProduitsListe() {
             <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
             <div class="admin-prod-info">
                 <strong>${escapeHTML(p.name)}</strong>
-                <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.inStock === false ? ' — marqué en rupture' : ''}</span>
+                <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${badgeRupture(p)}</span>
             </div>
             <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
             <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
