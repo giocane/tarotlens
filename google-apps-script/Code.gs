@@ -824,32 +824,39 @@ function envoyerDigestQuotidien() {
 
     if (!epuises.length && !faibles.length && !interets.length) return;
 
-    var lignes = ['Digest TarotLens — '
-        + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy'), ''];
+    // Titre souligné + un titre de section soutenu d'un filet du même
+    // longueur, pour aérer un digest qui reste par ailleurs en texte brut
+    // (pas de HTML pour ce mail, purement interne).
+    var titre = 'TAROTLENS — DIGEST QUOTIDIEN DU '
+        + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    var lignes = [titre, '='.repeat(titre.length), ''];
 
     if (epuises.length) {
-        lignes.push('RUPTURE DE STOCK :');
-        epuises.forEach(function (s) { lignes.push('- ' + s.nom + ' (id ' + s.id + ')'); });
+        var titreEpuises = 'RUPTURE DE STOCK (' + epuises.length + ')';
+        lignes.push(titreEpuises, '-'.repeat(titreEpuises.length));
+        epuises.forEach(function (s) { lignes.push('  • ' + s.nom + ' (id ' + s.id + ')'); });
         lignes.push('');
     }
 
     if (faibles.length) {
-        lignes.push('STOCK FAIBLE (≤ ' + SEUIL_STOCK_FAIBLE + ') :');
-        faibles.forEach(function (s) { lignes.push('- ' + s.nom + ' (id ' + s.id + ') : ' + s.qty); });
+        var titreFaibles = 'STOCK FAIBLE ≤ ' + SEUIL_STOCK_FAIBLE + ' (' + faibles.length + ')';
+        lignes.push(titreFaibles, '-'.repeat(titreFaibles.length));
+        faibles.forEach(function (s) { lignes.push('  • ' + s.nom + ' (id ' + s.id + ') — quantité restante : ' + s.qty); });
         lignes.push('');
     }
 
     if (interets.length) {
-        lignes.push('DEMANDES "PRÉVENEZ-MOI DU RETOUR EN STOCK" EN ATTENTE (' + interets.length + ') :');
+        var titreInterets = 'DEMANDES "PRÉVENEZ-MOI DU RETOUR EN STOCK" EN ATTENTE (' + interets.length + ')';
+        lignes.push(titreInterets, '-'.repeat(titreInterets.length));
         var parProduit = {};
         interets.forEach(function (it) {
             var cle = it.product || '(produit non précisé)';
             (parProduit[cle] = parProduit[cle] || []).push(it.email);
         });
         Object.keys(parProduit).forEach(function (prod) {
-            lignes.push('- ' + prod + ' : ' + parProduit[prod].join(', '));
+            lignes.push('  • ' + prod, '      ' + parProduit[prod].join(', '), '');
         });
-        lignes.push('', 'Pour retirer une demande traitée, supprime sa ligne dans l\'onglet "Intérêts stock".');
+        lignes.push('Pour retirer une demande traitée, supprime sa ligne dans l\'onglet "Intérêts stock".');
     }
 
     MailApp.sendEmail({
