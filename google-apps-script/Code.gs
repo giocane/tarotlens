@@ -1,6 +1,8 @@
-// TAROTLENS — reçoit les commandes (panier.js) et les inscriptions "prévenez-moi du
-// retour en stock" (index.html), les ajoute au Google Sheet, envoie un e-mail de
-// commande, sert la disponibilité du stock et le catalogue produits, et expose
+// TAROTLENS — reçoit les commandes (panier.js), les inscriptions "prévenez-moi du
+// retour en stock" (index.html) et les messages du formulaire de contact
+// (contact.html), les ajoute au Google Sheet (sauf contact, transmis par e-mail
+// seul), envoie un e-mail de commande, sert la disponibilité du stock et le
+// catalogue produits, et expose
 // l'API admin (admin.html : commandes, stock, produits, upload photos).
 // À coller dans Extensions > Apps Script du Sheet cible, puis déployer en Web App
 // (Exécuter en tant que : Moi — Accès : Tous). Voir le README à côté de ce fichier.
@@ -191,19 +193,28 @@ function getAdminKeyHash() {
     return PropertiesService.getScriptProperties().getProperty('ADMIN_KEY_HASH') || '';
 }
 
+// Utilities.getUuid() s'appuie sur un générateur aléatoire cryptographiquement
+// sûr (RFC 4122 v4) ; deux UUID concaténés sans tirets donnent 256 bits
+// d'entropie, largement suffisant pour une clé admin.
+function genererCleAdminAleatoire() {
+    return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+}
+
 function definirCleAdmin() {
     var ui = SpreadsheetApp.getUi();
     var actuelle = getAdminKeyHash();
-    var r = ui.prompt(
+    var r = ui.alert(
         actuelle ? 'Changer la clé admin' : 'Définir la clé admin',
-        'Clé à saisir dans admin.html pour se connecter (choisis une phrase difficile à deviner) :'
-        + (actuelle ? '\n\nUne clé existe déjà : la saisir ici la remplace immédiatement.' : ''),
+        (actuelle
+            ? 'Une clé existe déjà. Continuer va la remplacer immédiatement par une nouvelle clé générée aléatoirement.'
+            : 'Une nouvelle clé va être générée automatiquement (aléatoire, difficile à deviner).'),
         ui.ButtonSet.OK_CANCEL);
-    if (r.getSelectedButton() !== ui.Button.OK) return;
-    var cle = String(r.getResponseText()).trim();
-    if (!cle) { ui.alert('Clé vide : abandon.'); return; }
+    if (r !== ui.Button.OK) return;
+    var cle = genererCleAdminAleatoire();
     PropertiesService.getScriptProperties().setProperty('ADMIN_KEY_HASH', hacherCleAdmin(cle));
-    ui.alert('Clé admin enregistrée (jamais conservée en clair).\n\nSaisis-la dans admin.html pour t\'y connecter.');
+    ui.alert(
+        'Nouvelle clé admin générée (copie-la maintenant, elle ne sera plus jamais réaffichée) :\n\n' + cle
+        + '\n\nSaisis-la dans admin.html pour t\'y connecter.');
 }
 
 /* ==================== Helpers Sheet <-> objets ==================== */
@@ -978,6 +989,21 @@ function sendOrderEmail(data) {
     });
 }
 
+function sendContactEmail(data) {
+    var body = 'Nouveau message depuis le formulaire de contact TarotLens\n\n'
+        + 'Nom : ' + (data.name || '') + '\n'
+        + 'E-mail : ' + (data.email || '') + '\n'
+        + 'Sujet : ' + (data.subject || '') + '\n\n'
+        + 'Message :\n' + (data.message || '') + '\n';
+
+    MailApp.sendEmail({
+        to: ORDER_NOTIFY_EMAIL,
+        subject: 'TarotLens — contact : ' + (data.subject || 'Message'),
+        body: body,
+        replyTo: data.email || undefined,
+    });
+}
+
 function doPost(e) {
     var data;
     try {
@@ -1013,6 +1039,8 @@ function doPost(e) {
                 data.product || '',
                 data.lang || '',
             ]);
+        } else if (data.type === 'contact') {
+            sendContactEmail(data);
         } else {
             var orderSheet = findSheet(ss, 'Commandes') || ss.getActiveSheet();
             var itemsSummary = (data.items || [])

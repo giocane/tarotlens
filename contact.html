@@ -56,7 +56,7 @@
     <div class="contact-page">
         <h1 class="contact-title">CONTACT</h1>
         <div class="contact-grid">
-            <form class="contact-form" onsubmit="event.preventDefault(); this.reset(); document.getElementById('sent').hidden=false;">
+            <form class="contact-form" id="contactForm">
                 <div class="form-group">
                     <label for="fn" data-i18n="contact_nameLabel">Prénom & Nom</label>
                     <input id="fn" class="field" required />
@@ -80,6 +80,7 @@
                 </div>
                 <button class="btn btn-orange" type="submit" data-i18n="contact_send">ENVOYER</button>
                 <p id="sent" hidden class="sent-msg" data-i18n="contact_sentMsg">✦ Message envoyé, merci !</p>
+                <p id="contactError" hidden class="sent-msg" style="color:#c33" data-i18n="contact_sendError">Une erreur est survenue, merci de réessayer ou de nous écrire directement.</p>
             </form>
 
             <aside class="contact-aside">
@@ -118,12 +119,44 @@
     </div>
 </footer>
 
-<script src="i18n.js?v=1"></script>
+<script src="i18n.js?v=2"></script>
 <script src="cart.js?v=3"></script>
 <script>
 const burger = document.getElementById('navBurger');
 const navLinks = document.getElementById('navLinks');
 burger.addEventListener('click', () => { const o = navLinks.classList.toggle('open'); burger.setAttribute('aria-expanded', o); });
+
+document.getElementById('contactForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector('button[type=submit]');
+    const sentEl = document.getElementById('sent');
+    const errEl = document.getElementById('contactError');
+    sentEl.hidden = true;
+    errEl.hidden = true;
+    btn.disabled = true;
+
+    const payload = {
+        type: 'contact',
+        name: document.getElementById('fn').value,
+        email: document.getElementById('em').value,
+        subject: document.getElementById('su').value,
+        message: document.getElementById('msg').value,
+        lang: document.documentElement.lang || 'fr',
+    };
+
+    try {
+        const res = await fetch(window.TAROTLENS_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'unknown');
+        form.reset();
+        sentEl.hidden = false;
+    } catch (err) {
+        errEl.hidden = false;
+    } finally {
+        btn.disabled = false;
+    }
+});
 </script>
 </body>
 </html>

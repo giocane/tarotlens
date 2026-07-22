@@ -144,11 +144,18 @@
 <!-- TOAST -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="i18n.js?v=1"></script>
+<script src="i18n.js?v=2"></script>
 <script src="data.js?v=2"></script>
 <script src="cart.js?v=3"></script>
 <script src="products.js?v=1"></script>
 <script>
+// Échappe le HTML injecté depuis le catalogue produits (nom, images...) avant
+// de l'insérer via innerHTML — ces valeurs viennent du Sheet "Produits",
+// éditable par plus de monde que les seuls détenteurs de la clé admin.
+function escapeHTML(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // Menu burger
 const burger = document.getElementById('navBurger');
 const navLinks = document.getElementById('navLinks');
@@ -302,11 +309,11 @@ function renderProducts(products) {
     const cardHTML = p => `
         <div class="prod-card" data-id="${p.id}">
             <div class="prod-card-head">
-                <p class="prod-card-name">${pick(p, 'name')}</p>
+                <p class="prod-card-name">${escapeHTML(pick(p, 'name'))}</p>
                 <span class="prod-card-price">${p.price} €</span>
             </div>
             <div class="prod-card-media">
-                <img src="${p.img}" alt="${pick(p, 'name')}" loading="lazy">
+                <img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">
             </div>
             <div class="prod-card-actions">
                 <button type="button" class="btn btn-magenta sm" data-action="add">${t('btn_addToCart')}</button>
@@ -393,15 +400,15 @@ function buildModalMedia(p, displayName) {
 
     if (images.length === 1) {
         modalMedia.innerHTML = isVideo(images[0])
-            ? `<video src="${images[0]}" autoplay muted loop playsinline></video>`
-            : `<img src="${images[0]}" alt="${displayName}">`;
+            ? `<video src="${escapeHTML(images[0])}" autoplay muted loop playsinline></video>`
+            : `<img src="${escapeHTML(images[0])}" alt="${escapeHTML(displayName)}">`;
         return;
     }
 
     const { t } = window.TarotLensI18n;
     const slides = images.map((src, i) => isVideo(src)
-        ? `<video class="modal-slide" src="${src}" muted loop playsinline></video>`
-        : `<img class="modal-slide" src="${src}" alt="${displayName} ${i + 1}">`).join('');
+        ? `<video class="modal-slide" src="${escapeHTML(src)}" muted loop playsinline></video>`
+        : `<img class="modal-slide" src="${escapeHTML(src)}" alt="${escapeHTML(displayName)} ${i + 1}">`).join('');
     const dots = images.map((_, i) => `<button type="button" class="modal-dot" data-slide="${i}" aria-label="${t('modal_photoAria').replace('{n}', i + 1)}"></button>`).join('');
 
     modalMedia.innerHTML = `

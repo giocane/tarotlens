@@ -2,6 +2,13 @@
 const root = document.getElementById('cartRoot');
 const { t, pick } = window.TarotLensI18n;
 
+// Échappe le HTML injecté depuis le catalogue produits/panier (nom, images...)
+// avant de l'insérer via innerHTML — ces valeurs viennent du Sheet "Produits",
+// éditable par plus de monde que les seuls détenteurs de la clé admin.
+function escapeHTML(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function render() {
     const items = window.ArcanaCart.get();
 
@@ -25,19 +32,19 @@ function render() {
                 const name = product ? pick(product, 'name') : it.name;
                 const meta = product ? pick(product, 'tag') : it.meta;
                 return `
-                <div class="cart-line" data-key="${it.key}">
-                    <div class="cart-thumb">${it.img ? `<img src="${it.img}" alt="${name}">` : it.glyph}</div>
+                <div class="cart-line" data-key="${escapeHTML(it.key)}">
+                    <div class="cart-thumb">${it.img ? `<img src="${escapeHTML(it.img)}" alt="${escapeHTML(name)}">` : escapeHTML(it.glyph)}</div>
                     <div>
-                        <div class="cart-name">${name}</div>
-                        ${meta ? `<div class="cart-meta">${meta}</div>` : ''}
-                        <button class="cart-remove" data-remove="${it.key}">${t('cart_remove')}</button>
+                        <div class="cart-name">${escapeHTML(name)}</div>
+                        ${meta ? `<div class="cart-meta">${escapeHTML(meta)}</div>` : ''}
+                        <button class="cart-remove" data-remove="${escapeHTML(it.key)}">${t('cart_remove')}</button>
                     </div>
                     <div class="cart-right">
                         <div class="cart-line-price">${it.price > 0 ? (it.price * it.qty).toFixed(2).replace('.', ',') + ' €' : t('cart_preorder')}</div>
                         <div class="qty">
-                            <button type="button" data-dec="${it.key}" aria-label="−">−</button>
-                            <input type="number" value="${it.qty}" min="1" max="20" data-qty="${it.key}" />
-                            <button type="button" data-inc="${it.key}" aria-label="+">+</button>
+                            <button type="button" data-dec="${escapeHTML(it.key)}" aria-label="−">−</button>
+                            <input type="number" value="${it.qty}" min="1" max="20" data-qty="${escapeHTML(it.key)}" />
+                            <button type="button" data-inc="${escapeHTML(it.key)}" aria-label="+">+</button>
                         </div>
                     </div>
                 </div>`;

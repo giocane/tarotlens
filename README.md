@@ -1,58 +1,38 @@
-# Arcana — Tarots personnalisés
+# TarotLens
 
-Site vitrine + mini-boutique pour la vente de jeux de tarot personnalisés.
-HTML / CSS / JavaScript purs, sans dépendance ni build. Charte graphique
-rétro / groovy années 70 (rose, crème, orange) + mode sombre.
+Site vitrine + boutique de pré-commande pour les jeux de tarot/lenormand
+"Too Much" et "Has Been", et accessoires. HTML / CSS / JS purs, sans
+dépendance ni build (à part la XLSX export dans l'admin). Backend Google Apps
+Script (`google-apps-script/Code.gs`) branché sur un Google Sheet.
 
----
-
-## 🚀 Lancer le site
-
-Aucune installation. Ouvrez simplement **`index.html`** dans un navigateur.
-
-> 💡 Le panier utilise `localStorage` : il fonctionne en ouvrant les fichiers
-> directement (`file://`). Pour un rendu 100 % fidèle (polices, etc.), vous
-> pouvez aussi servir le dossier avec un petit serveur local :
-> ```bash
-> cd arcana-tarots && python3 -m http.server 8000
-> # puis ouvrir http://localhost:8000
-> ```
+En ligne sur Cloudflare Pages.
 
 ---
 
-## 📄 Pages (9)
+## 🚀 Lancer le site en local
+
+Aucune installation. Ouvrez **`index.html`** dans un navigateur, ou servez le
+dossier avec un petit serveur local pour un rendu 100 % fidèle (polices, etc.) :
+
+```bash
+python3 -m http.server 8000
+# puis ouvrir http://localhost:8000
+```
+
+Le panier (`localStorage`) et le catalogue produits (fetch vers le backend)
+fonctionnent dans les deux cas.
+
+---
+
+## 📄 Pages
 
 | Fichier | Rôle |
 |---------|------|
-| `index.html` | Accueil — héros, collections, configurateur (aperçu), galerie, lectures |
-| `boutique.html` | Catalogue : filtres (catégorie, ambiance, format, budget), tri, aperçu rapide |
-| `produit.html?id=N` | Fiche produit : visuel, quantité, onglets, produits associés |
-| `panier.html` | Panier : quantités, total, livraison, commande (démo) |
-| `personnaliser.html` | Sur-mesure : étapes, galerie de styles, **configurateur live**, tarifs, délais |
-| `apropos.html` | Histoire, atelier, journal |
-| `contact.html` | Formulaire + coordonnées |
-| `aide.html` | Livraison, retours, FAQ, suivi de commande |
+| `index.html` | Accueil — héros vidéo, grille decks + accessoires, modale produit, modale "prévenez-moi du retour en stock" |
+| `panier.html` | Panier + formulaire de commande (pré-commande) |
+| `contact.html` | Formulaire de contact (envoyé par e-mail via le backend) |
 | `legal.html` | Mentions légales, confidentialité, CGV |
-
----
-
-## 🎨 Styles (CSS)
-
-| Fichier | Contenu |
-|---------|---------|
-| `styles.css` | Base commune : variables de couleur, header, héros, boutons, footer, animations au scroll, **variables du mode sombre** |
-| `shop.css` | Boutique + fiche produit (grille, cartes, filtres, modale) |
-| `page.css` | Pages de contenu, configurateur, fiche produit, panier |
-
-### Changer les couleurs
-Tout part des variables CSS en haut de `styles.css` (`:root { … }`) :
-```css
---cream / --pink / --orange / --night / --ink …
-```
-Le mode sombre redéfinit ces mêmes variables dans `html[data-theme="dark"] { … }`.
-
-### Polices
-Chargées via Google Fonts : **Bagel Fat One** (titres groovy) + **Poppins** (texte).
+| `admin.html` | Back-office (commandes, stock, produits) — protégé par clé admin, `noindex` |
 
 ---
 
@@ -60,52 +40,53 @@ Chargées via Google Fonts : **Bagel Fat One** (titres groovy) + **Poppins** (te
 
 | Fichier | Rôle |
 |---------|------|
-| `data.js` | **Source unique des produits** (`window.PRODUCTS`) |
-| `cart.js` | Panier partagé (localStorage) : badge, navigation, add/remove/total |
-| `theme.js` | Mode clair/sombre : bouton injecté, mémorisé, préférence système, sans flash |
-| `shop.js` | Boutique : rendu, filtres, tri, aperçu rapide |
-| `produit.js` | Fiche produit (lit `?id=`) |
-| `panier.js` | Page panier |
-| `configurateur.js` | Galerie filtrable + configurateur avec aperçu en direct |
-| `script.js` | Accueil : animations au scroll, parallaxe, barre de progression |
-| `page.js` | Menu mobile + header au scroll (pages de contenu) |
+| `data.js` | Catalogue produits de secours (`window.PRODUCTS`) — utilisé pour le tout premier rendu, avant que le catalogue live ne réponde |
+| `products.js` | Charge le catalogue live depuis le Sheet "Produits" (remplace `window.PRODUCTS` si la réponse est exploitable) |
+| `cart.js` | Panier partagé (localStorage) : badge, navigation, add/remove/total ; expose aussi `ArcanaStock` (disponibilité live) |
+| `i18n.js` | FR / EN — dictionnaire, `data-i18n`, sélecteur de langue |
+| `panier.js` | Page panier : rendu des lignes, formulaire de commande, envoi au backend |
 
-Ordre de chargement sur chaque page : `theme.js` (head) → `data.js` → `cart.js` → script de la page.
+Ordre de chargement sur chaque page : `i18n.js` → `data.js` → `cart.js` →
+`products.js` → script de la page.
 
----
-
-## ✏️ Modifier le contenu
-
-- **Textes** : directement dans les fichiers `.html` (tout est en placeholder, à remplacer).
-- **Produits** : éditer le tableau dans `data.js` (nom, prix, catégorie, ambiance,
-  format, note, visuel…). Toutes les pages se mettent à jour automatiquement.
-- **Images** : les visuels sont actuellement des dégradés CSS + symboles. Pour de
-  vraies photos, remplacer les blocs `.card-media` / `.pdp-media` par des `<img>`.
-- **Styles de tarot (exemples)** : cartes SVG dans `personnaliser.html` (section
-  `#exemples`) ; les presets de l'aperçu live sont dans `configurateur.js`.
+**Cache-busting** : chaque `<script>`/`<link>` versionné (`?v=N`) doit être
+bumpé sur **toutes** les pages qui le référencent dès que le fichier change,
+sans quoi certains visiteurs restent sur l'ancienne version en cache.
 
 ---
 
-## ✨ Fonctionnalités
+## 🗄️ Backend (`google-apps-script/Code.gs`)
 
-- Charte rétro/groovy + **mode sombre** global mémorisé
-- **Animations au scroll** (révélations en cascade, parallaxe, barre de progression,
-  animations natives `animation-timeline` sur navigateurs récents)
-- Boutique **filtrable** (catégorie, ambiance, format, budget) + **tri** + aperçu rapide
-- **Fiche produit** avec onglets et produits associés
-- **Panier persistant** entre les pages (localStorage)
-- **Configurateur** sur-mesure avec aperçu de carte en temps réel → ajout au panier
-- 100 % **responsive** + respect de `prefers-reduced-motion`
+À coller dans Extensions > Apps Script du Google Sheet, déployé en Web App
+(exécuté en tant que "Moi", accès "Tous"). Onglets attendus dans le Sheet :
+`Commandes`, `Intérêts stock`, `Stock`, `Produits`. Détails et schéma exact
+des colonnes en commentaire en tête de `Code.gs`.
 
----
-
-## ⚠️ Limites (démo)
-
-- Aucun back-end : commandes, paiement, formulaires et suivi sont simulés.
-- Les textes légaux (mentions, CGV, confidentialité) sont des exemples à faire
-  valider juridiquement.
-- Les visuels produits sont illustratifs.
+Fonctionnalités : réception des commandes et des "prévenez-moi", relais du
+formulaire de contact, API admin (auth par clé hachée, jamais en clair),
+upload photos vers Drive, digest quotidien par e-mail (stock faible/rupture +
+demandes en attente), e-mails de suivi de commande multilingues.
 
 ---
 
-© 2026 Arcana — gabarit de démonstration.
+## 📦 Déploiement
+
+Le site est actuellement servi par Cloudflare Pages (déploiement direct du
+dépôt). `build-deploy.sh` reste disponible pour un déploiement alternatif en
+FTP classique (ex. O2Switch) : il prépare un dossier `dist/` propre (sans
+`.git`, sans `google-apps-script/`, sans les rushes photo/vidéo bruts) prêt à
+envoyer tel quel. `.htaccess` (forçage HTTPS, cache navigateur) n'est utile
+que dans ce second cas — Cloudflare Pages l'ignore.
+
+---
+
+## ⚠️ Limites
+
+- Pas de paiement en ligne : les commandes sont des pré-commandes, le
+  règlement se fait hors-site.
+- Les mentions légales / CGV contiennent encore des placeholders à valider
+  juridiquement avant tout contrôle sérieux.
+
+---
+
+© 2026 TarotLens.
