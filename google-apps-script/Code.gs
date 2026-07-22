@@ -22,6 +22,10 @@
 
 var ORDER_NOTIFY_EMAIL = 'TarotLens129@gmail.com';
 
+// URL affichée en pied des e-mails HTML (voir mailEnveloppeHtml) — à mettre à
+// jour si un nom de domaine est acheté un jour.
+var MAIL_SITE_URL = 'https://tarotlens.pages.dev';
+
 // Sel fixe combiné à la clé admin avant hachage (défense en profondeur contre les
 // rainbow tables ; la clé elle-même n'est jamais stockée en clair, voir definirCleAdmin).
 var SALT = 'tarotlens-once-famous-4ever-fabulous';
@@ -32,25 +36,33 @@ var STATUTS_COMMANDE = ['Commande reçue', 'Paiement validé', 'En préparation'
 // envoyerMailStatutCommande) — Annulée est un statut interne, pas notifié.
 var STATUTS_NOTIFIES = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
 
-// Contenu des e-mails de suivi de commande, par statut et par langue.
-// {name} et {suivi} sont substitués dans le corps.
+// Contenu des e-mails de suivi de commande, par statut et par langue —
+// juste le sujet et le message central, l'habillage (bandeau logo, pied de
+// page) et la formule de politesse sont ajoutés par mailCorpsHtml/
+// mailEnveloppeHtml pour rester cohérents entre les 4 statuts.
 var MAILS_STATUT_COMMANDE = {
     'Commande reçue': {
-        fr: { subject: 'TarotLens — commande reçue', body: 'Bonjour {name},\n\nNous avons bien reçu votre commande, merci ! Elle est en cours de traitement, nous vous tiendrons informé(e) de son avancement.\n\nÀ bientôt,\nL\'équipe TarotLens' },
-        en: { subject: 'TarotLens — order received', body: 'Hi {name},\n\nWe\'ve received your order, thank you! It\'s now being processed and we\'ll keep you posted on its progress.\n\nSee you soon,\nThe TarotLens team' },
+        fr: { subject: 'TarotLens — commande reçue', message: 'Nous avons bien reçu votre commande, merci ! Elle est en cours de traitement, nous vous tiendrons informé(e) de son avancement.' },
+        en: { subject: 'TarotLens — order received', message: 'We\'ve received your order, thank you! It\'s now being processed and we\'ll keep you posted on its progress.' },
     },
     'Paiement validé': {
-        fr: { subject: 'TarotLens — paiement validé', body: 'Bonjour {name},\n\nVotre paiement a bien été validé. Votre commande va maintenant être préparée.\n\nÀ bientôt,\nL\'équipe TarotLens' },
-        en: { subject: 'TarotLens — payment confirmed', body: 'Hi {name},\n\nYour payment has been confirmed. Your order will now be prepared.\n\nSee you soon,\nThe TarotLens team' },
+        fr: { subject: 'TarotLens — paiement validé', message: 'Votre paiement a bien été validé. Votre commande va maintenant être préparée.' },
+        en: { subject: 'TarotLens — payment confirmed', message: 'Your payment has been confirmed. Your order will now be prepared.' },
     },
     'En préparation': {
-        fr: { subject: 'TarotLens — commande en préparation', body: 'Bonjour {name},\n\nVotre commande est en cours de préparation, elle sera bientôt expédiée.\n\nÀ bientôt,\nL\'équipe TarotLens' },
-        en: { subject: 'TarotLens — order being prepared', body: 'Hi {name},\n\nYour order is now being prepared and will be shipped soon.\n\nSee you soon,\nThe TarotLens team' },
+        fr: { subject: 'TarotLens — commande en préparation', message: 'Votre commande est en cours de préparation, elle sera bientôt expédiée.' },
+        en: { subject: 'TarotLens — order being prepared', message: 'Your order is now being prepared and will be shipped soon.' },
     },
     'Expédié': {
-        fr: { subject: 'TarotLens — commande expédiée', body: 'Bonjour {name},\n\nVotre commande a été expédiée !\n\nNuméro de suivi : {suivi}\n\nÀ bientôt,\nL\'équipe TarotLens' },
-        en: { subject: 'TarotLens — order shipped', body: 'Hi {name},\n\nYour order has been shipped!\n\nTracking number: {suivi}\n\nSee you soon,\nThe TarotLens team' },
+        fr: { subject: 'TarotLens — commande expédiée', message: 'Votre commande a été expédiée !', suiviLabel: 'Numéro de suivi' },
+        en: { subject: 'TarotLens — order shipped', message: 'Your order has been shipped!', suiviLabel: 'Tracking number' },
     },
+};
+
+// Formule d'appel/de politesse, par langue — partagée par les 4 e-mails.
+var MAIL_I18N = {
+    fr: { greeting: 'Bonjour', signoff: 'À bientôt,', team: 'L\'équipe TarotLens' },
+    en: { greeting: 'Hi', signoff: 'See you soon,', team: 'The TarotLens team' },
 };
 
 // Quantité à partir de laquelle un produit est signalé "stock faible" dans le
@@ -537,18 +549,73 @@ function supprimerCommande(ss, row) {
     sh.deleteRow(row);
 }
 
+// Échappe le texte injecté dans les e-mails HTML (nom du client, numéro de
+// suivi) — ce sont des valeurs saisies par l'utilisateur au checkout.
+function echapperHtmlMail(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Corps HTML commun aux 4 e-mails de statut : civilité, message du statut,
+// encart numéro de suivi (si fourni) et formule de politesse.
+function mailCorpsHtml(i18n, texte, name, suivi) {
+    var html = '<p style="margin:0 0 16px;font-size:16px;">' + echapperHtmlMail(i18n.greeting) + ' ' + echapperHtmlMail(name) + ',</p>'
+        + '<p style="margin:0 0 20px;font-size:15px;line-height:1.6;">' + echapperHtmlMail(texte.message) + '</p>';
+    if (suivi) {
+        html += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr><td style="background:#F5EDCC;border-radius:12px;padding:14px 18px;">'
+            + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8B2DB5;font-weight:700;margin:0 0 4px;">' + echapperHtmlMail(texte.suiviLabel) + '</div>'
+            + '<div style="font-size:18px;font-weight:700;color:#1A1614;">' + echapperHtmlMail(suivi) + '</div>'
+            + '</td></tr></table>';
+    }
+    html += '<p style="margin:0;font-size:15px;line-height:1.6;">' + echapperHtmlMail(i18n.signoff) + '<br>' + echapperHtmlMail(i18n.team) + '</p>';
+    return html;
+}
+
+// Habillage commun (bandeau logo TarotLens, carte blanche, pied de page) —
+// couleurs reprises de styles.css (--orange, --cream, --purple, --ink).
+function mailEnveloppeHtml(corpsHtml) {
+    return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F5EDCC;">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5EDCC;padding:32px 16px;font-family:\'Poppins\',Arial,sans-serif;">'
+        + '<tr><td align="center">'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border-radius:18px;overflow:hidden;">'
+        + '<tr><td style="background:#E84E0A;padding:28px 24px;text-align:center;">'
+        + '<span style="font-family:Impact,\'Arial Black\',sans-serif;font-size:30px;letter-spacing:4px;color:#FFFFFF;text-transform:uppercase;">TarotLens</span>'
+        + '</td></tr>'
+        + '<tr><td style="padding:32px 28px;color:#1A1614;">' + corpsHtml + '</td></tr>'
+        + '<tr><td style="background:#F5EDCC;padding:18px 28px;text-align:center;">'
+        + '<a href="' + MAIL_SITE_URL + '" style="font-size:12px;color:#8B2DB5;text-decoration:none;">' + MAIL_SITE_URL.replace('https://', '') + '</a>'
+        + '</td></tr>'
+        + '</table></td></tr></table></body></html>';
+}
+
 // Envoie au client l'e-mail de suivi correspondant au nouveau statut, dans la
-// langue de sa commande (repli sur le français si langue inconnue).
+// langue de sa commande (repli sur le français si langue inconnue). Envoi en
+// multipart (htmlBody + body texte brut) : les clients qui n'affichent pas le
+// HTML retombent sur le texte brut.
 function envoyerMailStatutCommande(commande, statut, suivi) {
     if (STATUTS_NOTIFIES.indexOf(statut) < 0) return; // ex. Annulée : pas de mail auto
     if (!commande.email) return;
     var tpl = MAILS_STATUT_COMMANDE[statut];
     var lang = (String(commande.lang || '').toLowerCase() === 'en') ? 'en' : 'fr';
     var texte = tpl[lang];
-    var body = texte.body
-        .replace('{name}', commande.name || '')
-        .replace('{suivi}', suivi || '');
-    MailApp.sendEmail({ to: commande.email, subject: texte.subject, body: body, replyTo: ORDER_NOTIFY_EMAIL });
+    var i18n = MAIL_I18N[lang];
+    var name = commande.name || '';
+
+    var bodyPlain = i18n.greeting + ' ' + name + ',\n\n' + texte.message
+        + (suivi ? '\n\n' + texte.suiviLabel + ' : ' + suivi : '')
+        + '\n\n' + i18n.signoff + '\n' + i18n.team;
+
+    MailApp.sendEmail({
+        to: commande.email,
+        subject: texte.subject,
+        body: bodyPlain,
+        htmlBody: mailEnveloppeHtml(mailCorpsHtml(i18n, texte, name, suivi)),
+        replyTo: ORDER_NOTIFY_EMAIL,
+    });
 }
 
 function definirStatutCommande(ss, row, statut, suivi) {
