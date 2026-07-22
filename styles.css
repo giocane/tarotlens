@@ -215,7 +215,7 @@ img { max-width: 100%; display: block; }
 }
 .prod-card-media {
     border-radius: var(--radius); overflow: hidden;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 5 / 4;
     background: linear-gradient(135deg, #ddd5c0, #c8c0a8);
     display: grid; place-items: center;
     font-size: 52px; color: rgba(255,255,255,.7);
