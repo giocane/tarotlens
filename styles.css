@@ -156,7 +156,6 @@ img { max-width: 100%; display: block; }
     border-radius: var(--radius); overflow: hidden;
     position: relative;
     aspect-ratio: 4 / 3;
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 .hero-media img,
 .hero-media video {
@@ -220,7 +219,6 @@ img { max-width: 100%; display: block; }
     background: linear-gradient(135deg, #ddd5c0, #c8c0a8);
     display: grid; place-items: center;
     font-size: 52px; color: rgba(255,255,255,.7);
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 .prod-card-media img,
 .prod-card-media video {
