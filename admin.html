@@ -322,8 +322,6 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <div class="admin-form-group"><label>Description (EN)</label><textarea class="admin-field" id="f_desc_en"></textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
-                <label class="admin-checkbox-row"><input type="checkbox" id="f_hero"> Mise en avant en bannière d'accueil (hero)</label>
-                <p class="admin-help">Affiche ce produit dans les grandes bannières en haut de la page d'accueil (vidéo/photo de couverture du produit). Plusieurs produits peuvent être cochés ; l'ordre suit celui de la liste ci-dessous (flèches ↑↓).</p>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -932,6 +930,9 @@ function renderProduitsListe() {
                     <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}</strong>
                     <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
                 </div>
+                <label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
+                    <input type="checkbox" data-hero-toggle="${p.id}" ${p.hero ? 'checked' : ''}> Hero
+                </label>
                 <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
                 <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
             </div>`).join('');
@@ -949,6 +950,15 @@ function renderProduitsListe() {
         const copie = { ...p, id: null, name: p.name + ' (copie)' };
         const rep = await api('adminSaveProduit', { produit: copie });
         if (rep.ok) { toast('Produit dupliqué.'); chargerProduits(); } else { toast(rep.error, true); }
+    }));
+    el.querySelectorAll('[data-hero-toggle]').forEach(cb => cb.addEventListener('change', async () => {
+        const p = produitsCache.find(x => x.id === +cb.dataset.heroToggle);
+        if (!p) return;
+        cb.disabled = true;
+        const rep = await api('adminSaveProduit', { produit: { ...p, hero: cb.checked } });
+        cb.disabled = false;
+        if (rep.ok) { toast(cb.checked ? 'Ajouté au hero.' : 'Retiré du hero.'); chargerProduits(); }
+        else { cb.checked = !cb.checked; toast(rep.error, true); }
     }));
 }
 
@@ -980,7 +990,6 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc').value = p.desc || '';
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
-    document.getElementById('f_hero').checked = p.hero === true;
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1065,7 +1074,6 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc = document.getElementById('f_desc').value;
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
-    p.hero = document.getElementById('f_hero').checked;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');
