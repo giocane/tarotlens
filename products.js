@@ -4,7 +4,9 @@
 // remplace window.PRODUCTS uniquement si l'API répond avec un catalogue non vide.
 window.ArcanaProducts = (function () {
     const CACHE_KEY = 'tarotlens_products_cache';
-    const TTL_MS = 5 * 60 * 1000;
+    // Alignée sur le TTL du cache de stock (cart.js) : un visiteur qui reste sur
+    // le site ne doit pas garder une disponibilité obsolète plus longtemps que ça.
+    const TTL_MS = 30 * 1000;
 
     function readCache() {
         try {
