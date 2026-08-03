@@ -138,7 +138,18 @@ async function submitOrder(e, items, subtotal) {
     try {
         const res = await fetch(window.TAROTLENS_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
-        if (!data.ok) throw new Error(data.error || 'unknown');
+        if (!data.ok) {
+            // 'stock' : le serveur a revérifié la disponibilité au moment de la commande
+            // (indépendamment de ce que le panier affichait) et refusé un ou plusieurs
+            // articles entre-temps passés en rupture — message dédié plutôt que générique.
+            errEl.textContent = data.error === 'stock'
+                ? t('cart_orderErrorStock').replace('{items}', (data.items || []).join(', '))
+                : t('cart_orderError');
+            btn.disabled = false;
+            btn.textContent = t('cart_orderSubmit');
+            errEl.hidden = false;
+            return;
+        }
         root.innerHTML = `<div class="cart-empty"><p class="cart-empty-title">${t('cart_thanksTitle')}</p><p style="opacity:.7;margin-bottom:20px">${t('cart_thanksText')}</p><a class="btn btn-orange" href="index.html">${t('cart_backHome')}</a></div>`;
         window.ArcanaCart.clear();
         // Le formulaire remplacé est plus court que le contenu précédent : sans ça,
@@ -146,6 +157,7 @@ async function submitOrder(e, items, subtotal) {
         // bas de page) et retombe sur le footer au lieu du message de confirmation.
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
+        errEl.textContent = t('cart_orderError');
         btn.disabled = false;
         btn.textContent = t('cart_orderSubmit');
         errEl.hidden = false;

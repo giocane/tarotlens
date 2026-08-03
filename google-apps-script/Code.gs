@@ -1081,6 +1081,33 @@ function handleAdmin(action, p) {
     }
 }
 
+// Revérifie la disponibilité au moment où la commande arrive réellement côté
+// serveur, indépendamment de ce que le panier affichait au client (cache
+// périmé, onglet resté ouvert depuis avant un passage en rupture, requête
+// forgée à la main...). Même définition de "rupture" que le frontend
+// (getAvailability dans index.html) : suivi dans l'onglet "Stock" -> qty <= 0 ;
+// sinon -> flag inStock à faux dans l'onglet "Produits". Un id absent des deux
+// n'est pas bloqué (mêmes conventions qu'ailleurs : "absent = en stock").
+// Retourne les noms des articles indisponibles (liste vide = tout est bon).
+function articlesIndisponibles(ss, items) {
+    var stockParId = {};
+    listerStock(ss).forEach(function (s) { stockParId[s.id] = s.qty; });
+    var produitParId = {};
+    listerProduits(ss).forEach(function (p) { produitParId[p.id] = p; });
+
+    var indisponibles = [];
+    (items || []).forEach(function (it) {
+        var id = Number(it.id);
+        if (!id) return;
+        var qtyStock = stockParId[id];
+        var out = (typeof qtyStock === 'number')
+            ? qtyStock <= 0
+            : !!(produitParId[id] && produitParId[id].inStock === false);
+        if (out) indisponibles.push(it.name || ('#' + id));
+    });
+    return indisponibles;
+}
+
 /* ==================== doGet / doPost ==================== */
 
 function doGet(e) {
@@ -1197,6 +1224,13 @@ function doPost(e) {
         } else if (data.type === 'contact') {
             sendContactEmail(data);
         } else {
+            var indisponibles = articlesIndisponibles(ss, data.items || []);
+            if (indisponibles.length) {
+                return ContentService
+                    .createTextOutput(JSON.stringify({ ok: false, error: 'stock', items: indisponibles }))
+                    .setMimeType(ContentService.MimeType.JSON);
+            }
+
             var orderSheet = findSheet(ss, 'Commandes') || ss.getActiveSheet();
             var itemsSummary = (data.items || [])
                 .map(function (it) { return it.name + ' x' + it.qty; })
