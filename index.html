@@ -275,16 +275,27 @@ function getAvailability(p) {
     return { tracked: false, qty: null, out: p.inStock === false };
 }
 
+// Passe à true une fois que renderStockStates() a tourné au moins une fois
+// avec une réponse (même de secours) du catalogue/stock — voir openProductModal.
+let stockChecked = false;
+
+// Tant que ni le catalogue live ni le stock n'ont répondu, "Ajouter au panier"
+// reste désactivé (voir cardHTML) : mieux vaut un bref délai à l'affichage
+// qu'un client plus rapide que la mise à jour du stock qui commande un produit
+// entre-temps passé en rupture. Cette fonction lève cette désactivation une
+// fois la disponibilité réelle connue, ou confirme l'état "rupture".
 function renderStockStates() {
     const { t } = window.TarotLensI18n;
     document.querySelectorAll('.prod-card[data-id]').forEach(card => {
         const p = window.PRODUCTS.find(x => x.id === +card.dataset.id);
+        const actions = card.querySelector('.prod-card-actions');
         if (!p) return;
         const avail = getAvailability(p);
         const lowStock = avail.tracked && !avail.out && avail.qty <= 3;
-        if (!avail.out && !lowStock) return;
-
-        const actions = card.querySelector('.prod-card-actions');
+        if (!avail.out && !lowStock) {
+            actions.querySelector('[data-action="add"]').disabled = false;
+            return;
+        }
 
         if (avail.out) {
             card.classList.add('out-of-stock');
@@ -302,12 +313,14 @@ function renderStockStates() {
             notifyBtn.addEventListener('click', () => openStockModal(p));
             addBtn.replaceWith(notifyBtn);
         } else {
+            actions.querySelector('[data-action="add"]').disabled = false;
             const badge = document.createElement('span');
             badge.className = 'stock-badge low';
             badge.textContent = t('stock_lowBadge').replace('{n}', avail.qty);
             actions.before(badge);
         }
     });
+    stockChecked = true;
 }
 // Grille produits : générée depuis window.PRODUCTS (data.js au premier rendu,
 // remplacé par le catalogue live dès que ArcanaProducts.load() résout). Les
@@ -329,7 +342,7 @@ function renderProducts(products) {
                 <img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">
             </div>
             <div class="prod-card-actions">
-                <button type="button" class="btn btn-magenta sm" data-action="add">${t('btn_addToCart')}</button>
+                <button type="button" class="btn btn-magenta sm" data-action="add" disabled>${t('btn_addToCart')}</button>
                 <button type="button" class="btn btn-ghost sm" data-action="learn">${t('btn_learnMore')}</button>
             </div>
         </div>`;
@@ -460,17 +473,27 @@ function openProductModal(id) {
     ].filter(Boolean);
     modalSpecs.textContent = specs.length ? specs.join(' — ') : t('modal_descTodo');
 
-    const avail = getAvailability(p);
-    if (avail.out) {
-        modalAddBtn.style.display = 'none';
-        modalNotify.innerHTML = `<span class="stock-badge">${t('stock_outOfStock')}</span>` + notifyFormHTML(t);
-        wireNotifyForm(modalNotify, p);
-    } else {
+    if (!stockChecked) {
+        // Même principe que la grille : tant que la disponibilité réelle n'est
+        // pas confirmée, pas d'ajout au panier possible depuis la fiche produit.
         modalAddBtn.style.display = '';
-        modalNotify.innerHTML = avail.tracked
-            ? `<p class="stock-qty-line">${t('stock_available').replace('{n}', avail.qty)}</p>`
-            : '';
-        modalAddBtn.onclick = () => { addToCartById(id); closeProductModal(); };
+        modalAddBtn.disabled = true;
+        modalAddBtn.onclick = null;
+        modalNotify.innerHTML = '';
+    } else {
+        const avail = getAvailability(p);
+        if (avail.out) {
+            modalAddBtn.style.display = 'none';
+            modalNotify.innerHTML = `<span class="stock-badge">${t('stock_outOfStock')}</span>` + notifyFormHTML(t);
+            wireNotifyForm(modalNotify, p);
+        } else {
+            modalAddBtn.style.display = '';
+            modalAddBtn.disabled = false;
+            modalNotify.innerHTML = avail.tracked
+                ? `<p class="stock-qty-line">${t('stock_available').replace('{n}', avail.qty)}</p>`
+                : '';
+            modalAddBtn.onclick = () => { addToCartById(id); closeProductModal(); };
+        }
     }
     productModal.classList.add('show');
 }

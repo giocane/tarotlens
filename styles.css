@@ -117,6 +117,7 @@ img { max-width: 100%; display: block; }
 }
 .btn:active { transform: scale(.96); }
 .btn.sm { font-size: 12px; padding: 9px 20px; }
+.btn:disabled { opacity: .45; cursor: default; pointer-events: none; }
 
 .btn-orange  { background: var(--orange);  color: #fff; }
 .btn-orange:hover  { background: #c23d00; }
