@@ -21,9 +21,7 @@ window.ArcanaProducts = (function () {
     // Retourne le nouveau catalogue (et met à jour window.PRODUCTS) si l'API a
     // répondu avec des données exploitables, sinon null (window.PRODUCTS garde
     // alors la valeur de data.js déjà chargée).
-    async function load() {
-        const cached = readCache();
-        if (cached) { window.PRODUCTS = cached; return cached; }
+    async function fetchAndCache() {
         try {
             const res = await fetch(window.TAROTLENS_ENDPOINT + '?action=produits');
             const json = await res.json();
@@ -35,6 +33,16 @@ window.ArcanaProducts = (function () {
         } catch { /* catalogue indisponible : on garde le PRODUCTS de secours (data.js) */ }
         return null;
     }
+
+    // Démarre la requête (ou la lecture du cache) dès que ce script s'exécute, plutôt que
+    // d'attendre que le script de la page appelle load() en tout dernier — le round-trip
+    // vers Apps Script (jamais instantané) se déroule ainsi en parallèle du reste du
+    // chargement de la page au lieu de s'ajouter après coup. load() renvoie toujours cette
+    // même promesse mémoïsée : un seul appel réseau, peu importe le nombre d'appels à load().
+    const cached = readCache();
+    const pending = cached ? Promise.resolve(cached).then(c => { window.PRODUCTS = c; return c; }) : fetchAndCache();
+
+    function load() { return pending; }
 
     return { load };
 })();
