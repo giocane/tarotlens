@@ -19,13 +19,6 @@
             modal_nextAria: "Photo suivante",
             modal_photoAria: "Photo {n}",
             unit_cards: "cartes",
-            p5_name: "BOUGIE MARTINI",
-            p6_name: "BOUGIE MATCHA LATTE",
-            p7_name: "BOUGIE UBE LATTE",
-            p8_name: "BOUGIE TOMATE",
-            p9_name: "BOUGIE ORANGE",
-            p10_name: "BOUGIE CITRON",
-            p11_name: "BOUGIE FRAISE",
             toast_added: '« {name} » ajouté au panier',
             footer_contactLine: "Me contacter si vous avez des questions",
             footer_legalLink: "Mentions légales",
@@ -105,13 +98,6 @@
             modal_nextAria: "Next photo",
             modal_photoAria: "Photo {n}",
             unit_cards: "cards",
-            p5_name: "MARTINI CANDLE",
-            p6_name: "MATCHA LATTE CANDLE",
-            p7_name: "UBE LATTE CANDLE",
-            p8_name: "TOMATO CANDLE",
-            p9_name: "ORANGE CANDLE",
-            p10_name: "LEMON CANDLE",
-            p11_name: "STRAWBERRY CANDLE",
             toast_added: '"{name}" added to cart',
             footer_contactLine: "Get in touch if you have any questions",
             footer_legalLink: "Legal notice",
@@ -197,11 +183,23 @@
         return obj[field];
     }
 
+    // Remplit un élément avec du texte pouvant contenir des retours à la ligne
+    // (ex. titres de bannière) sans jamais passer par innerHTML — construction
+    // de nœuds texte + <br> pour éviter tout risque d'injection avec un texte
+    // qui peut désormais venir du back office (voir chargerTextesLive).
+    function setTexteMultiligne(el, texte) {
+        el.textContent = '';
+        String(texte).split('\n').forEach((ligne, i) => {
+            if (i > 0) el.appendChild(document.createElement('br'));
+            el.appendChild(document.createTextNode(ligne));
+        });
+    }
+
     function applyStaticI18n() {
         document.documentElement.lang = getLang();
 
         document.querySelectorAll('[data-i18n]').forEach(el => {
-            el.textContent = t(el.getAttribute('data-i18n'));
+            setTexteMultiligne(el, t(el.getAttribute('data-i18n')));
         });
 
         document.querySelectorAll('[data-i18n-attr]').forEach(el => {
@@ -226,4 +224,51 @@
 
     applyStaticI18n();
     renderLangToggle();
+
+    // ==================== Textes personnalisés (back office) ====================
+    // Duplique volontairement l'URL de endpoint de cart.js (window.TAROTLENS_ENDPOINT) :
+    // i18n.js se charge avant cart.js (voir README, ordre de chargement des scripts),
+    // donc cette variable n'existe pas encore ici. Même URL que cart.js/admin.html.
+    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
+    const TEXTES_CACHE_KEY = 'tarotlens_textes_cache';
+    const TEXTES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+    function lireCacheTextes() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(TEXTES_CACHE_KEY));
+            if (!parsed || Date.now() - parsed.ts > TEXTES_CACHE_TTL_MS) return null;
+            return parsed.textes;
+        } catch { return null; }
+    }
+    function ecrireCacheTextes(textes) {
+        try { localStorage.setItem(TEXTES_CACHE_KEY, JSON.stringify({ ts: Date.now(), textes })); } catch { /* stockage indisponible, tant pis */ }
+    }
+
+    // Fusionne les textes personnalisés (édités dans l'onglet Textes de l'admin)
+    // par-dessus le dictionnaire par défaut, puis ré-applique data-i18n partout
+    // sur la page. Une clé/langue vide dans le Sheet = on garde le texte d'origine.
+    function fusionnerTextes(textes) {
+        if (!textes) return;
+        Object.keys(textes).forEach(cle => {
+            const v = textes[cle] || {};
+            if (v.fr) DICT.fr[cle] = v.fr;
+            if (v.en) DICT.en[cle] = v.en;
+        });
+        applyStaticI18n();
+        renderLangToggle();
+    }
+
+    async function chargerTextesLive() {
+        const cached = lireCacheTextes();
+        if (cached) fusionnerTextes(cached);
+        try {
+            const res = await fetch(ENDPOINT + '?action=textes');
+            const json = await res.json();
+            if (json.ok && json.textes) {
+                fusionnerTextes(json.textes);
+                ecrireCacheTextes(json.textes);
+            }
+        } catch { /* pas grave, on garde les textes par défaut */ }
+    }
+    chargerTextesLive();
 })();

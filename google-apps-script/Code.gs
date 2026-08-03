@@ -25,6 +25,10 @@
 //                         main). Ligne d'en-tête exacte : voir PRODUITS_ENTETES
 //                         ci-dessous. Colonne "images" = URLs séparées par "|",
 //                         la première sert de visuel de couverture.
+//   - "Textes"          : tous les textes du site (dictionnaire i18n FR/EN +
+//                         titres des bannières), éditables depuis l'onglet
+//                         Textes de admin.html. Créé automatiquement au premier
+//                         enregistrement si absent — colonnes [cle, fr, en].
 
 var ORDER_NOTIFY_EMAIL = 'TarotLens129@gmail.com';
 
@@ -89,7 +93,13 @@ var SEUIL_STOCK_FAIBLE = 2;
 
 var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
     'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
-    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock'];
+    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero'];
+
+// Onglet "Textes" : tous les textes du site (dictionnaire i18n de i18n.js +
+// titres des bannières d'accueil), éditables depuis l'onglet Textes de
+// admin.html. Une ligne vide (fr et en vides) = le site garde son texte
+// d'origine (celui codé en dur dans i18n.js) — voir listerTextes/fusionnerTextes.
+var TEXTES_ENTETES = ['cle', 'fr', 'en'];
 
 var DOSSIER_PHOTOS = 'TarotLens - Photos produits';
 var TAILLE_MAX_PHOTO = 8 * 1024 * 1024; // 8 Mo décodés
@@ -284,6 +294,7 @@ function produitDepuisLigne(o) {
         desc: String(o.desc || ''),
         desc_en: texteOuNull(o.desc_en),
         inStock: !(o.inStock === false || String(o.inStock).toUpperCase() === 'FAUX' || String(o.inStock).toUpperCase() === 'FALSE'),
+        hero: (o.hero === true || String(o.hero).toUpperCase() === 'VRAI' || String(o.hero).toUpperCase() === 'TRUE'),
     };
 }
 
@@ -326,6 +337,7 @@ function sauvegarderProduit(ss, p) {
         if (h === 'id') return id;
         if (h === 'images') return (p.images || []).join('|');
         if (h === 'inStock') return p.inStock !== false;
+        if (h === 'hero') return p.hero === true;
         var v = p[h];
         return (v === undefined || v === null) ? '' : v;
     });
@@ -410,6 +422,81 @@ function actionProduitsPublic() {
     return resultat;
 }
 
+/* ==================== Textes du site (i18n back office) ==================== */
+
+function getOrCreateSheetTextes(ss) {
+    var sh = findSheet(ss, 'Textes');
+    if (!sh) {
+        sh = ss.insertSheet('Textes');
+        sh.appendRow(TEXTES_ENTETES);
+    }
+    return sh;
+}
+
+// {cle: {fr, en}} pour chaque ligne ayant au moins une des deux langues
+// renseignée — une clé absente d'ici = le site garde son texte d'origine.
+function listerTextes(ss) {
+    var sh = findSheet(ss, 'Textes');
+    if (!sh) return {};
+    var out = {};
+    sheetToObjects(sh).forEach(function (o) {
+        var cle = String(o.cle || '').trim();
+        if (!cle) return;
+        var fr = texteOuNull(o.fr), en = texteOuNull(o.en);
+        if (fr || en) out[cle] = { fr: fr || '', en: en || '' };
+    });
+    return out;
+}
+
+function viderCacheTextes() {
+    CacheService.getScriptCache().remove('textes_v1');
+}
+
+function actionTextesPublic() {
+    var cache = CacheService.getScriptCache();
+    var enCache = cache.get('textes_v1');
+    if (enCache) return JSON.parse(enCache);
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var resultat = { ok: true, textes: listerTextes(ss) };
+    cache.put('textes_v1', JSON.stringify(resultat), 60);
+    return resultat;
+}
+
+// map = {cle: {fr, en}} — envoyé en entier par admin.html à chaque
+// enregistrement (voir renderTextesTab côté admin) ; upsert ligne par ligne.
+function sauvegarderTextes(ss, map) {
+    map = map || {};
+    var sh = getOrCreateSheetTextes(ss);
+    var rows = sh.getDataRange().getValues();
+    var headers = (rows[0] || TEXTES_ENTETES).map(function (h) { return String(h).trim(); });
+    var cleCol = headers.indexOf('cle'), frCol = headers.indexOf('fr'), enCol = headers.indexOf('en');
+
+    Object.keys(map).forEach(function (cle) {
+        var v = map[cle] || {};
+        var ligneIdx = -1;
+        for (var i = 1; i < rows.length; i++) {
+            if (String(rows[i][cleCol]) === cle) { ligneIdx = i; break; }
+        }
+        if (ligneIdx >= 0) {
+            sh.getRange(ligneIdx + 1, frCol + 1).setValue(v.fr || '');
+            sh.getRange(ligneIdx + 1, enCol + 1).setValue(v.en || '');
+        } else {
+            var ligne = headers.map(function (h) {
+                if (h === 'cle') return cle;
+                if (h === 'fr') return v.fr || '';
+                if (h === 'en') return v.en || '';
+                return '';
+            });
+            sh.appendRow(ligne);
+            rows.push(ligne);
+        }
+    });
+
+    viderCacheTextes();
+    return { ok: true };
+}
+
 /* ==================== Import initial depuis data.js ==================== */
 
 function importerProduitsDepuisDataJs() {
@@ -458,7 +545,7 @@ var PRODUITS_IMPORT = [
         desc: "Des couleurs, des paillettes, du glitter, de la nostalgie… et toujours absolument aucun sens de la mesure.\n\nLe Too Much Tarot revisite les 78 arcanes du tarot dans un univers pop, coloré et délicieusement kitsch.\n\nBecause Too Much is never enough. 🍬",
         desc_en: "Colors, sequins, glitter, nostalgia… and still absolutely no sense of moderation.\n\nThe Too Much Tarot reimagines the 78 tarot arcana in a pop, colorful and deliciously kitsch universe.\n\nBecause Too Much is never enough. 🍬",
         images: ['images/toomuch-card.jpg', 'videos/toomuch-hero.mp4', 'videos/toomuch-detail.mp4'],
-        inStock: true,
+        inStock: true, hero: true,
     },
     {
         id: 1, cat: 'deck', name: 'Has Been Tarot', name_en: '', tag: 'Tarot', tag_en: '',
@@ -468,7 +555,7 @@ var PRODUITS_IMPORT = [
         desc: "Comme son nom l'indique, c'est un tarot inspiré de tous ces objets oubliés... BUT, Once famous, 4ever Fabulous\n\n87 cartes remplies de nostalgie, de couleurs et de kitch. De quoi rendre jaloux la Gen Z\n\nGuidebook PDF avec mots-clés, explications des associations et du sens de la carte + une chanson culte pour accompagner chaque carte\n\nSi tu envoyais des Wizz sur MSN pendant que tu terminais ton article sur ton Skyblog « Mii$$TarOt.du75 »\nSi tu as oublié de le nourrir ton Tamagotchi pendant trois jours\nSi tu as voulu un Furby mais qu'au fond il te faisait un peu flipper\nSi tu téléchargeais Britney pendant 4 heures sur LimeWire pour découvrir que c'était la mauvaise version\nSi tu penses que tu aurais dû écouter ta mère quand elle t'a dit que cette paire de Buffalo était moche\nAlors ce deck est pour toi",
         desc_en: "As the name suggests, this is a tarot inspired by all those things everyone's forgotten... BUT, Once famous, 4ever Fabulous\n\n87 cards packed with nostalgia, color and kitsch. Enough to make Gen Z jealous\n\nPDF guidebook with keywords, explanations of the associations and meaning of each card + a cult song to go with every card\n\nIf you used to send Wizz on MSN Messenger while finishing your post on your blog \"Mii$$TarOt.du75\"\nIf you forgot to feed your Tamagotchi for three days straight\nIf you wanted a Furby but deep down it kind of freaked you out\nIf you downloaded Britney for 4 hours on LimeWire only to find out it was the wrong version\nIf you think you should've listened to your mum when she said those Buffalo boots were ugly\nThen this deck is for you",
         images: ['images/hasbeen-card.jpg', 'images/hasbeen-2.jpg', 'images/hasbeen-3.jpg', 'images/hasbeen-4.jpg', 'images/hasbeen-5.jpg', 'images/hasbeen-6.jpg', 'images/hasbeen-7.jpg', 'images/hasbeen-detail.jpg', 'videos/hasbeen-hero.mp4'],
-        inStock: true,
+        inStock: true, hero: true,
     },
     {
         id: 2, cat: 'deck', name: 'Too Much Lenormand', name_en: '', tag: 'Lenormand', tag_en: '',
@@ -478,7 +565,7 @@ var PRODUITS_IMPORT = [
         desc: "Des couleurs, des paillettes, du glitter, du kitsch et absolument aucun sens de la mesure.\nLe Too Much Lenormand est le petit frère du Too Much Tarot : plus petit, mais tout aussi Kitch\n\nBecause Too Much is never enough",
         desc_en: "Colors, sequins, glitter, kitsch and absolutely no sense of moderation.\nThe Too Much Lenormand is the little sibling of the Too Much Tarot: smaller, but just as Kitsch\n\nBecause Too Much is never enough",
         images: ['images/lenormand-card.jpg', 'images/lenormand-2.jpg', 'images/lenormand-3.jpg', 'images/lenormand-4.jpg', 'images/lenormand-5.jpg', 'videos/lenormand-hero.mp4', 'videos/lenormand-detail.mp4'],
-        inStock: true,
+        inStock: true, hero: true,
     },
     {
         id: 4, cat: 'bundle', name: 'Bundle', name_en: '', tag: 'Bundle', tag_en: '',
@@ -928,6 +1015,7 @@ function handleAction(p) {
     try {
         var action = String(p.action || '');
         if (action === 'produits') return actionProduitsPublic();
+        if (action === 'textes') return actionTextesPublic();
 
         if (action.indexOf('admin') === 0) {
             var isAdmin = !!(p.ak && hacherCleAdmin(p.ak) === getAdminKeyHash());
@@ -984,6 +1072,10 @@ function handleAdmin(action, p) {
         case 'adminDeleteInteret':
             supprimerInteret(ss, Number(p.row));
             return { ok: true };
+        case 'adminListTextes':
+            return { ok: true, textes: listerTextes(ss) };
+        case 'adminSaveTextes':
+            return sauvegarderTextes(ss, p.textes || {});
         default:
             return { ok: false, error: 'Action admin inconnue : ' + action };
     }
@@ -994,11 +1086,11 @@ function handleAdmin(action, p) {
 function doGet(e) {
     var p = (e && e.parameter) ? e.parameter : {};
 
-    // Nouveau : seule l'action publique "produits" est accessible en GET.
-    // Les actions admin exigent un POST (la clé ne doit jamais transiter par l'URL).
+    // Nouveau : seules les actions publiques "produits"/"textes" sont accessibles
+    // en GET. Les actions admin exigent un POST (la clé ne doit jamais transiter par l'URL).
     if (p.action) {
-        var resultat = (p.action === 'produits')
-            ? actionProduitsPublic()
+        var resultat = (p.action === 'produits') ? actionProduitsPublic()
+            : (p.action === 'textes') ? actionTextesPublic()
             : { ok: false, error: 'Cette action nécessite une requête POST.' };
         return ContentService
             .createTextOutput(JSON.stringify(resultat))

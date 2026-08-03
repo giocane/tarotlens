@@ -151,6 +151,7 @@
             <button type="button" class="admin-tab-btn" data-tab="stock">Stock</button>
             <button type="button" class="admin-tab-btn" data-tab="emailing">Emailing</button>
             <button type="button" class="admin-tab-btn" data-tab="produits">Produits</button>
+            <button type="button" class="admin-tab-btn" data-tab="textes">Textes</button>
         </div>
 
         <!-- TABLEAU DE BORD -->
@@ -270,6 +271,20 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             </div>
             <div id="produitsListe"></div>
         </div>
+
+        <!-- TEXTES -->
+        <div class="admin-tab-panel" id="tab-textes">
+            <p class="admin-help">Tous les textes du site (FR + EN), y compris les titres des bannières d'accueil, les mentions légales et la page contact. Les champs contenant <code>{n}</code> ou <code>{name}</code> doivent garder ce repère tel quel : il est remplacé automatiquement (quantité, nom de produit…).</p>
+            <div class="admin-panel-head">
+                <input type="text" class="admin-field" id="textesRecherche" placeholder="Filtrer (ex. panier, légal…)" style="width:260px">
+                <span class="admin-muted" id="textesCount"></span>
+            </div>
+            <div id="textesListe"></div>
+            <div class="admin-form-actions">
+                <span></span>
+                <button type="button" class="btn btn-orange" id="saveTextesBtn">Enregistrer les textes</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -307,6 +322,8 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <div class="admin-form-group"><label>Description (EN)</label><textarea class="admin-field" id="f_desc_en"></textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_hero"> Mise en avant en bannière d'accueil (hero)</label>
+                <p class="admin-help">Affiche ce produit dans les grandes bannières en haut de la page d'accueil (vidéo/photo de couverture du produit). Plusieurs produits peuvent être cochés ; l'ordre suit celui de la liste ci-dessous (flèches ↑↓).</p>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -423,6 +440,7 @@ function switchTab(name) {
     if (name === 'stock') chargerStock();
     if (name === 'emailing') chargerEmailing();
     if (name === 'produits') chargerProduits();
+    if (name === 'textes') chargerTextes();
 }
 
 // Macaron rouge sur l'onglet Commandes = nombre de commandes "à traiter"
@@ -911,8 +929,8 @@ function renderProduitsListe() {
                 </span>
                 <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
                 <div class="admin-prod-info">
-                    <strong>${escapeHTML(p.name)}</strong>
-                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${badgeRupture(p)}</span>
+                    <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}</strong>
+                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
                 </div>
                 <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
                 <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
@@ -946,7 +964,7 @@ const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'format', 'format_en',
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false };
 }
 
 function ouvrirFormProduit(id) {
@@ -962,6 +980,7 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc').value = p.desc || '';
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
+    document.getElementById('f_hero').checked = p.hero === true;
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1046,6 +1065,7 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc = document.getElementById('f_desc').value;
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
+    p.hero = document.getElementById('f_hero').checked;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');
@@ -1072,6 +1092,224 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
     } else {
         toast(rep.error, true);
     }
+});
+
+/* ==================== Textes du site ==================== */
+// Duplique volontairement le dictionnaire par défaut de i18n.js (sert de
+// valeur pré-remplie / placeholder ici) : à tenir à jour si le texte codé en
+// dur du site change. hero_cta pilote le bouton des bannières d'accueil (le
+// titre de chaque bannière, lui, vient directement du nom du produit mis en
+// avant — voir la case "hero" dans la fiche produit) ; le reste correspond
+// aux attributs data-i18n du site (boutons, menus, panier, contact, mentions
+// légales…).
+const TEXTES_DEFAUTS_FR = {
+    hero_cta: "ACHETEZ VOTRE TAROT",
+    nav_decks: "LES DECKS", nav_accessories: "ACCESSOIRES", nav_cartAria: "Panier", nav_homeAria: "TarotLens, accueil",
+    title_decks: "LES DECKS", title_accessories: "LES ACCESSOIRES",
+    btn_addToCart: "AJOUTER AU PANIER", btn_learnMore: "EN SAVOIR +", unit_cards: "cartes",
+    toast_added: '« {name} » ajouté au panier',
+    modal_closeAria: "Fermer", modal_descTodo: "Description à venir.", modal_prevAria: "Photo précédente",
+    modal_nextAria: "Photo suivante", modal_photoAria: "Photo {n}",
+    stock_outOfStock: "RUPTURE DE STOCK", stock_notifyPlaceholder: "Votre e-mail", stock_notifySubmit: "PRÉVENEZ-MOI",
+    stock_notifySending: "ENVOI…", stock_notifyThanks: "Merci, on vous prévient dès le retour en stock !",
+    stock_notifyError: "Une erreur est survenue, réessayez plus tard.", stock_lowBadge: "Plus que {n} en stock !",
+    stock_available: "{n} disponible(s)",
+    cart_title: "MON PANIER", cart_emptyTitle: "Votre panier est vide", cart_emptyText: "Découvrez nos decks et accessoires.",
+    cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande",
+    cart_summaryTitle: "Récapitulatif", cart_subtotal: "Sous-total", cart_priceTBC: "Prix à confirmer",
+    cart_totalItems: "Total articles", cart_checkout: "VALIDER LA COMMANDE", cart_clear: "Vider le panier",
+    cart_thanksTitle: "Merci !", cart_thanksText: "Pré-commande enregistrée. Nous vous recontactons prochainement.",
+    cart_backHome: "RETOUR À L'ACCUEIL", cart_orderTitle: "Vos coordonnées", cart_orderName: "Prénom & Nom",
+    cart_orderEmail: "E-mail", cart_orderPhone: "Téléphone", cart_orderAddress: "Adresse de livraison",
+    cart_orderCp: "Code postal", cart_orderPays: "Pays", cart_orderSubmit: "ENVOYER LA COMMANDE",
+    cart_orderSending: "ENVOI EN COURS…", cart_orderError: "Une erreur est survenue, merci de réessayer ou de nous contacter directement.",
+    footer_contactLine: "Me contacter si vous avez des questions", footer_legalLink: "Mentions légales",
+    contact_nameLabel: "Prénom & Nom", contact_subjectLabel: "Sujet", contact_opt1: "Question sur une commande",
+    contact_opt2: "Pré-commande", contact_opt3: "Partenariat / presse", contact_opt4: "Autre",
+    contact_send: "ENVOYER", contact_sentMsg: "✦ Message envoyé, merci !",
+    contact_sendError: "Une erreur est survenue, merci de réessayer ou de nous écrire directement à TarotLens129@gmail.com.",
+    contact_responseTitle: "Réponse", contact_responseText: "Je réponds sous 48 h.",
+    legal_title: "MENTIONS LÉGALES", legal_publisherTitle: "Éditeur du site",
+    legal_publisherText: "à compléter avec vos informations réelles.", legal_contactPrefix: "Contact : ",
+    legal_privacyTitle: "Confidentialité", legal_privacyIntro: "Nous collectons uniquement les données nécessaires au traitement de vos commandes.",
+    legal_li1: "Données collectées : identité, e-mail, historique de commande.",
+    legal_li2: "Finalités : traitement des commandes et support.",
+    legal_li3_prefix: "Vos droits : accès, rectification, effacement — écrivez à ",
+    legal_cgvTitle: "Conditions de vente",
+    legal_cgvText1: "Les produits TarotLens sont en pré-commande. Toute commande implique l'acceptation des présentes CGV.",
+    legal_cgvText2: "Les prix sont indiqués en euros TTC.", legal_cgvText3: "À compléter selon vos conditions réelles.",
+    lang_switchLabel: "God save the Queen (of wands)", lang_switchAria: "Switch to English",
+};
+const TEXTES_DEFAUTS_EN = {
+    hero_cta: "BUY YOUR DECK",
+    nav_decks: "THE DECKS", nav_accessories: "ACCESSORIES", nav_cartAria: "Cart", nav_homeAria: "TarotLens, home",
+    title_decks: "THE DECKS", title_accessories: "THE ACCESSORIES",
+    btn_addToCart: "ADD TO CART", btn_learnMore: "LEARN MORE", unit_cards: "cards",
+    toast_added: '"{name}" added to cart',
+    modal_closeAria: "Close", modal_descTodo: "Description coming soon.", modal_prevAria: "Previous photo",
+    modal_nextAria: "Next photo", modal_photoAria: "Photo {n}",
+    stock_outOfStock: "OUT OF STOCK", stock_notifyPlaceholder: "Your email", stock_notifySubmit: "NOTIFY ME",
+    stock_notifySending: "SENDING…", stock_notifyThanks: "Thanks, we'll let you know as soon as it's back in stock!",
+    stock_notifyError: "Something went wrong, please try again later.", stock_lowBadge: "Only {n} left!",
+    stock_available: "{n} available",
+    cart_title: "MY CART", cart_emptyTitle: "Your cart is empty", cart_emptyText: "Discover our decks and accessories.",
+    cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order",
+    cart_summaryTitle: "Summary", cart_subtotal: "Subtotal", cart_priceTBC: "Price to be confirmed",
+    cart_totalItems: "Total items", cart_checkout: "CONFIRM ORDER", cart_clear: "Clear cart",
+    cart_thanksTitle: "Thank you!", cart_thanksText: "Pre-order recorded. We'll be in touch with you soon.",
+    cart_backHome: "BACK TO HOME", cart_orderTitle: "Your details", cart_orderName: "First & last name",
+    cart_orderEmail: "E-mail", cart_orderPhone: "Phone", cart_orderAddress: "Delivery address",
+    cart_orderCp: "Postal code", cart_orderPays: "Country", cart_orderSubmit: "SEND ORDER",
+    cart_orderSending: "SENDING…", cart_orderError: "Something went wrong, please try again or contact us directly.",
+    footer_contactLine: "Get in touch if you have any questions", footer_legalLink: "Legal notice",
+    contact_nameLabel: "First & last name", contact_subjectLabel: "Subject", contact_opt1: "Order question",
+    contact_opt2: "Pre-order", contact_opt3: "Partnership / press", contact_opt4: "Other",
+    contact_send: "SEND", contact_sentMsg: "✦ Message sent, thank you!",
+    contact_sendError: "Something went wrong, please try again or email us directly at TarotLens129@gmail.com.",
+    contact_responseTitle: "Response", contact_responseText: "I reply within 48h.",
+    legal_title: "LEGAL NOTICE", legal_publisherTitle: "Site publisher",
+    legal_publisherText: "to be completed with your real information.", legal_contactPrefix: "Contact: ",
+    legal_privacyTitle: "Privacy", legal_privacyIntro: "We only collect the data necessary to process your orders.",
+    legal_li1: "Data collected: identity, email, order history.", legal_li2: "Purpose: order processing and support.",
+    legal_li3_prefix: "Your rights: access, correction, deletion — write to ",
+    legal_cgvTitle: "Terms of sale",
+    legal_cgvText1: "TarotLens products are available for pre-order. Any order implies acceptance of these terms of sale.",
+    legal_cgvText2: "Prices are shown in euros, VAT included.", legal_cgvText3: "To be completed according to your actual terms.",
+    lang_switchLabel: "Pardon my french!", lang_switchAria: "Revenir au français",
+};
+
+// Regroupement purement cosmétique (accordéon de la longue liste de champs) —
+// n'affecte pas les clés stockées, juste l'organisation visuelle du formulaire.
+const TEXTES_GROUPES = [
+    { titre: "Bannières d'accueil", champs: [
+        { k: 'hero_cta', l: 'Bouton « Précommander » (toutes les bannières)', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },
+    ]},
+    { titre: 'Navigation', champs: [
+        { k: 'nav_decks', l: 'Lien menu — Decks' }, { k: 'nav_accessories', l: 'Lien menu — Accessoires' },
+        { k: 'nav_cartAria', l: 'Panier (accessibilité)' }, { k: 'nav_homeAria', l: 'Logo (accessibilité)' },
+        { k: 'title_decks', l: 'Titre section Decks' }, { k: 'title_accessories', l: 'Titre section Accessoires' },
+    ]},
+    { titre: 'Fiche produit', champs: [
+        { k: 'btn_addToCart', l: 'Bouton Ajouter au panier' }, { k: 'btn_learnMore', l: 'Bouton En savoir plus' },
+        { k: 'unit_cards', l: 'Unité « cartes »' },
+        { k: 'toast_added', l: 'Message ajouté au panier', hint: 'Garde {name} — remplacé par le nom du produit' },
+        { k: 'modal_closeAria', l: 'Fermer (accessibilité)' }, { k: 'modal_descTodo', l: 'Description manquante (texte par défaut)' },
+        { k: 'modal_prevAria', l: 'Photo précédente (accessibilité)' }, { k: 'modal_nextAria', l: 'Photo suivante (accessibilité)' },
+        { k: 'modal_photoAria', l: 'Photo n° (accessibilité)', hint: 'Garde {n} — remplacé par le numéro' },
+    ]},
+    { titre: 'Stock & rupture', champs: [
+        { k: 'stock_outOfStock', l: 'Étiquette rupture de stock' }, { k: 'stock_notifyPlaceholder', l: 'Champ e-mail (placeholder)' },
+        { k: 'stock_notifySubmit', l: 'Bouton Prévenez-moi' }, { k: 'stock_notifySending', l: 'Bouton pendant l\'envoi' },
+        { k: 'stock_notifyThanks', l: 'Message de confirmation' }, { k: 'stock_notifyError', l: "Message d'erreur" },
+        { k: 'stock_lowBadge', l: 'Badge stock faible', hint: 'Garde {n} — remplacé par la quantité' },
+        { k: 'stock_available', l: 'Texte quantité disponible', hint: 'Garde {n} — remplacé par la quantité' },
+    ]},
+    { titre: 'Panier & commande', champs: [
+        { k: 'cart_title', l: 'Titre du panier' }, { k: 'cart_emptyTitle', l: 'Panier vide — titre' },
+        { k: 'cart_emptyText', l: 'Panier vide — texte' }, { k: 'cart_emptyCta', l: 'Panier vide — bouton' },
+        { k: 'cart_remove', l: 'Bouton Retirer' }, { k: 'cart_preorder', l: 'Étiquette Pré-commande' },
+        { k: 'cart_summaryTitle', l: 'Titre récapitulatif' }, { k: 'cart_subtotal', l: 'Libellé Sous-total' },
+        { k: 'cart_priceTBC', l: 'Prix à confirmer' }, { k: 'cart_totalItems', l: 'Libellé Total articles' },
+        { k: 'cart_checkout', l: 'Bouton Valider la commande' }, { k: 'cart_clear', l: 'Bouton Vider le panier' },
+        { k: 'cart_thanksTitle', l: 'Confirmation — titre' }, { k: 'cart_thanksText', l: 'Confirmation — texte' },
+        { k: 'cart_backHome', l: "Bouton Retour à l'accueil" }, { k: 'cart_orderTitle', l: 'Titre du formulaire' },
+        { k: 'cart_orderName', l: 'Champ Nom' }, { k: 'cart_orderEmail', l: 'Champ E-mail' },
+        { k: 'cart_orderPhone', l: 'Champ Téléphone' }, { k: 'cart_orderAddress', l: 'Champ Adresse' },
+        { k: 'cart_orderCp', l: 'Champ Code postal' }, { k: 'cart_orderPays', l: 'Champ Pays' },
+        { k: 'cart_orderSubmit', l: 'Bouton Envoyer la commande' }, { k: 'cart_orderSending', l: "Bouton pendant l'envoi" },
+        { k: 'cart_orderError', l: "Message d'erreur commande" },
+    ]},
+    { titre: 'Pied de page', champs: [
+        { k: 'footer_contactLine', l: 'Phrase de contact' }, { k: 'footer_legalLink', l: 'Lien Mentions légales' },
+    ]},
+    { titre: 'Page contact', champs: [
+        { k: 'contact_nameLabel', l: 'Champ Nom' }, { k: 'contact_subjectLabel', l: 'Champ Sujet' },
+        { k: 'contact_opt1', l: 'Sujet — Question commande' }, { k: 'contact_opt2', l: 'Sujet — Pré-commande' },
+        { k: 'contact_opt3', l: 'Sujet — Partenariat/presse' }, { k: 'contact_opt4', l: 'Sujet — Autre' },
+        { k: 'contact_send', l: 'Bouton Envoyer' }, { k: 'contact_sentMsg', l: 'Message envoyé' },
+        { k: 'contact_sendError', l: "Message d'erreur" }, { k: 'contact_responseTitle', l: 'Titre « Réponse »' },
+        { k: 'contact_responseText', l: 'Texte délai de réponse' },
+    ]},
+    { titre: 'Mentions légales', champs: [
+        { k: 'legal_title', l: 'Titre de page' }, { k: 'legal_publisherTitle', l: 'Titre — Éditeur du site' },
+        { k: 'legal_publisherText', l: 'Texte — Éditeur du site', multiligne: true },
+        { k: 'legal_contactPrefix', l: 'Préfixe contact' }, { k: 'legal_privacyTitle', l: 'Titre — Confidentialité' },
+        { k: 'legal_privacyIntro', l: 'Texte — Confidentialité', multiligne: true },
+        { k: 'legal_li1', l: 'Confidentialité — puce 1' }, { k: 'legal_li2', l: 'Confidentialité — puce 2' },
+        { k: 'legal_li3_prefix', l: 'Confidentialité — puce 3 (préfixe)' }, { k: 'legal_cgvTitle', l: 'Titre — CGV' },
+        { k: 'legal_cgvText1', l: 'CGV — texte 1', multiligne: true }, { k: 'legal_cgvText2', l: 'CGV — texte 2', multiligne: true },
+        { k: 'legal_cgvText3', l: 'CGV — texte 3', multiligne: true },
+    ]},
+    { titre: 'Sélecteur de langue', champs: [
+        { k: 'lang_switchLabel', l: 'Libellé du bouton' }, { k: 'lang_switchAria', l: 'Accessibilité' },
+    ]},
+];
+
+let textesOverrides = {};
+
+async function chargerTextes() {
+    const el = document.getElementById('textesListe');
+    el.innerHTML = 'Chargement…';
+    const rep = await api('adminListTextes');
+    if (!rep.ok) { el.innerHTML = `Erreur : ${escapeHTML(rep.error)}`; return; }
+    textesOverrides = rep.textes || {};
+    renderTextesListe();
+}
+
+function valeurTexte(cle, lang) {
+    const o = textesOverrides[cle];
+    if (o && o[lang]) return o[lang];
+    return (lang === 'fr' ? TEXTES_DEFAUTS_FR : TEXTES_DEFAUTS_EN)[cle] || '';
+}
+
+function renderTextesListe() {
+    const el = document.getElementById('textesListe');
+    const filtre = document.getElementById('textesRecherche').value.trim().toLowerCase();
+    let nbAffiches = 0, nbTotal = 0;
+
+    el.innerHTML = TEXTES_GROUPES.map(groupe => {
+        const champsAffiches = groupe.champs.filter(c => {
+            nbTotal++;
+            const hay = `${groupe.titre} ${c.l} ${c.k}`.toLowerCase();
+            const visible = !filtre || hay.includes(filtre);
+            if (visible) nbAffiches++;
+            return visible;
+        });
+        if (!champsAffiches.length) return '';
+        const lignes = champsAffiches.map(c => {
+            const champ = c.multiligne
+                ? (l) => `<textarea class="admin-field" data-txt-cle="${c.k}" data-txt-lang="${l}" style="min-height:70px">${escapeHTML(valeurTexte(c.k, l))}</textarea>`
+                : (l) => `<input class="admin-field" data-txt-cle="${c.k}" data-txt-lang="${l}" value="${escapeHTML(valeurTexte(c.k, l))}">`;
+            return `
+                <div class="admin-form-grid" style="margin-bottom:14px">
+                    <div class="admin-form-group" style="grid-column:1/-1">
+                        <label>${escapeHTML(c.l)}</label>
+                        ${c.hint ? `<p class="admin-help" style="margin:0 0 6px">${escapeHTML(c.hint)}</p>` : ''}
+                    </div>
+                    <div class="admin-form-group"><label>FR</label>${champ('fr')}</div>
+                    <div class="admin-form-group"><label>EN</label>${champ('en')}</div>
+                </div>`;
+        }).join('');
+        return `<p class="admin-section-label">${escapeHTML(groupe.titre)}</p>${lignes}`;
+    }).join('') || '<p class="admin-muted">Aucun résultat pour ce filtre.</p>';
+
+    document.getElementById('textesCount').textContent = filtre ? `${nbAffiches} / ${nbTotal} champ(s)` : `${nbTotal} champ(s)`;
+}
+
+document.getElementById('textesRecherche').addEventListener('input', renderTextesListe);
+
+document.getElementById('saveTextesBtn').addEventListener('click', async () => {
+    const map = {};
+    document.querySelectorAll('#textesListe [data-txt-cle]').forEach(inp => {
+        const cle = inp.dataset.txtCle, lang = inp.dataset.txtLang;
+        map[cle] = map[cle] || {};
+        map[cle][lang] = inp.value;
+    });
+    const btn = document.getElementById('saveTextesBtn');
+    btn.disabled = true;
+    const rep = await api('adminSaveTextes', { textes: map });
+    btn.disabled = false;
+    if (rep.ok) { toast('Textes enregistrés.'); chargerTextes(); } else { toast(rep.error, true); }
 });
 </script>
 </body>

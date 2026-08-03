@@ -41,38 +41,8 @@
 
 <main>
 
-<!-- ═══════════════════════════════ HERO 1 — NEW HAS BEEN TAROT ═══════════════ -->
-<section class="hero-feature">
-    <div class="hero-copy">
-        <h1 class="hero-title">NEW<br>HAS BEEN<br>TAROT</h1>
-        <a href="#decks" class="btn btn-orange" data-i18n="hero_cta">PRE ORDER HERE</a>
-    </div>
-    <div class="hero-media">
-        <video data-src="videos/hasbeen-hero.mp4" preload="none" muted loop playsinline></video>
-    </div>
-</section>
-
-<!-- ═══════════════════════════════ HERO 2 — NEW TOO MUCH LENORMAND ═══════════ -->
-<section class="hero-feature">
-    <div class="hero-copy">
-        <h2 class="hero-title magenta">NEW<br>TOO MUCH<br>LENORMAND</h2>
-        <a href="#decks" class="btn btn-orange" data-i18n="hero_cta">PRE ORDER HERE</a>
-    </div>
-    <div class="hero-media">
-        <video data-src="videos/lenormand-hero.mp4" preload="none" muted loop playsinline></video>
-    </div>
-</section>
-
-<!-- ═══════════════════════════════ HERO 3 — TOO MUCH TAROT ════════════════════ -->
-<section class="hero-feature rev">
-    <div class="hero-copy">
-        <h2 class="hero-title">TOO MUCH<br>TAROT</h2>
-        <a href="#decks" class="btn btn-orange" data-i18n="hero_cta">PRE ORDER HERE</a>
-    </div>
-    <div class="hero-media">
-        <video data-src="videos/toomuch-hero.mp4" preload="none" muted loop playsinline></video>
-    </div>
-</section>
+<!-- ═══════════════════════════════ HERO — bannières mises en avant (pilotées depuis admin.html, produit -> case "hero") ═══════════════════════════════ -->
+<div id="heroContainer"></div>
 
 <!-- ═══════════════════════════════════ LES DECKS ════════════════════════════════ -->
 <section class="products-section" id="decks">
@@ -144,7 +114,7 @@
 <!-- TOAST -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="i18n.js?v=2"></script>
+<script src="i18n.js?v=3"></script>
 <script src="data.js?v=2"></script>
 <script src="cart.js?v=3"></script>
 <script src="products.js?v=1"></script>
@@ -191,7 +161,48 @@ const heroVideoObserver = new IntersectionObserver((entries) => {
         }
     });
 }, { threshold: 0.25 });
-document.querySelectorAll('.hero-media video[data-src]').forEach(v => heroVideoObserver.observe(v));
+
+// Révélation au scroll (voir plus bas pour les sections statiques ; le hero
+// est généré dynamiquement donc ses sections s'enregistrent depuis renderHero).
+const revealObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); revealObserver.unobserve(e.target); } });
+}, { threshold: 0.12 });
+
+// Bannières hero : générées depuis les produits ayant la case "mise en avant
+// (hero)" cochée dans admin.html, dans l'ordre du catalogue (donc du Sheet).
+// Vidéo affichée = la 1ʳᵉ vidéo de la fiche produit, sinon sa photo de couverture.
+const HERO_MEDIA_VIDEO_RE = /\.(mp4|mov)$/i;
+
+function renderHero(products) {
+    const container = document.getElementById('heroContainer');
+    if (!container || !products) return;
+    const { pick, t } = window.TarotLensI18n;
+    const featured = products.filter(p => p.hero);
+
+    container.innerHTML = featured.map((p, i) => {
+        const media = (p.images || []).find(src => HERO_MEDIA_VIDEO_RE.test(src)) || p.img;
+        const mediaHTML = media && HERO_MEDIA_VIDEO_RE.test(media)
+            ? `<video data-src="${escapeHTML(media)}" preload="none" muted loop playsinline></video>`
+            : media ? `<img src="${escapeHTML(media)}" alt="">` : '';
+        const displayName = pick(p, 'name');
+        const titleHTML = (p.badge === 'new' ? 'NEW<br>' : '') + escapeHTML(displayName.toUpperCase());
+        const titleTag = i === 0 ? 'h1' : 'h2';
+        return `
+        <section class="hero-feature${i % 2 ? ' rev' : ''}">
+            <div class="hero-copy">
+                <${titleTag} class="hero-title${i % 2 ? ' magenta' : ''}">${titleHTML}</${titleTag}>
+                <a href="#${p.cat === 'accessory' ? 'accessoires' : 'decks'}" class="btn btn-orange">${escapeHTML(t('hero_cta'))}</a>
+            </div>
+            <div class="hero-media">${mediaHTML}</div>
+        </section>`;
+    }).join('');
+
+    container.querySelectorAll('.hero-feature').forEach(el => {
+        el.classList.add('reveal');
+        revealObserver.observe(el);
+    });
+    container.querySelectorAll('.hero-media video[data-src]').forEach(v => heroVideoObserver.observe(v));
+}
 
 // Add to cart
 const toast = document.getElementById('toast');
@@ -334,8 +345,9 @@ function renderProducts(products) {
 }
 
 renderProducts(window.PRODUCTS);
+renderHero(window.PRODUCTS);
 window.ArcanaProducts.load().then(produits => {
-    if (produits) renderProducts(produits);
+    if (produits) { renderProducts(produits); renderHero(produits); }
     return window.ArcanaStock.load();
 }).finally(renderStockStates);
 
@@ -475,13 +487,11 @@ window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight' && modalImages.length > 1) { modalImageIndex = (modalImageIndex + 1) % modalImages.length; renderModalSlide(); }
 });
 
-// Révélation au scroll
-const io = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); } });
-}, { threshold: 0.12 });
-document.querySelectorAll('.hero-feature, .products-section').forEach(el => {
+// Révélation au scroll (sections statiques ; le hero utilise revealObserver
+// directement dans renderHero, déclaré plus haut).
+document.querySelectorAll('.products-section').forEach(el => {
     el.classList.add('reveal');
-    io.observe(el);
+    revealObserver.observe(el);
 });
 </script>
 </body>
