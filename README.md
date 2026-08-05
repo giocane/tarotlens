@@ -58,14 +58,22 @@ sans quoi certains visiteurs restent sur l'ancienne version en cache.
 ## 🗄️ Backend (`google-apps-script/Code.gs`)
 
 À coller dans Extensions > Apps Script du Google Sheet, déployé en Web App
-(exécuté en tant que "Moi", accès "Tous"). Onglets attendus dans le Sheet :
-`Commandes`, `Intérêts stock`, `Stock`, `Produits`. Détails et schéma exact
-des colonnes en commentaire en tête de `Code.gs`.
+(exécuté en tant que "Moi", accès "Tous").
 
 Fonctionnalités : réception des commandes et des "prévenez-moi", relais du
 formulaire de contact, API admin (auth par clé hachée, jamais en clair),
 upload photos vers Drive, digest quotidien par e-mail (stock faible/rupture +
 demandes en attente), e-mails de suivi de commande multilingues.
+
+### Onglets attendus dans le Sheet
+
+| Onglet | Colonnes | Notes |
+|---|---|---|
+| `Commandes` | date, nom, email, tel, adresse, articles, sous-total, langue, statut, numéro de suivi, articles (JSON `[{id,qty}]`, usage interne), stock déjà décrémenté (booléen, usage interne) | Remplie automatiquement. Le statut suit `STATUTS_COMMANDE` ; le numéro de suivi n'est rempli qu'au statut "Expédié" ; le flag "stock décrémenté" garantit un décompte une seule fois même si le statut repasse plusieurs fois par "Paiement validé". Chaque changement de statut (sauf "Annulée") envoie un e-mail auto au client dans sa langue. |
+| `Intérêts stock` | — | Inscriptions "prévenez-moi du retour en stock", remplie automatiquement. |
+| `Stock` | id, nom, quantité disponible | Éditable à la main ou depuis `admin.html`. Une ligne par produit. |
+| `Produits` | `id, cat, name, name_en, tag, tag_en, cards, format, format_en, weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, images, inStock, hero` | Ligne d'en-tête exacte définie par la constante `PRODUITS_ENTETES` dans `Code.gs` (source de vérité — si les deux divergent, c'est le Sheet qui pilote). Colonne `images` = URLs séparées par `\|`, la première sert de visuel de couverture. Catalogue complet, éditable depuis `admin.html` (ou à la main). |
+| `Textes` | cle, fr, en | Dictionnaire i18n FR/EN + titres des bannières, éditable depuis l'onglet Textes de `admin.html`. Créé automatiquement au premier enregistrement si absent. |
 
 ---
 
