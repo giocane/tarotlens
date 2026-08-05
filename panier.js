@@ -1,10 +1,6 @@
-// TAROTLENS — page panier
 const root = document.getElementById('cartRoot');
 const { t, pick } = window.TarotLensI18n;
 
-// Échappe le HTML injecté depuis le catalogue produits/panier (nom, images...)
-// avant de l'insérer via innerHTML — ces valeurs viennent du Sheet "Produits",
-// éditable par plus de monde que les seuls détenteurs de la clé admin.
 function escapeHTML(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -127,8 +123,6 @@ async function submitOrder(e, items, subtotal) {
         address: `${address}\n${cp} ${pays}`,
         items: items.map(it => {
             const product = (window.PRODUCTS || []).find(p => p.id === it.id);
-            // id transmis pour que le backend décrémente le Stock par id produit au
-            // statut "Paiement validé" — pas par nom, qui varie en FR/EN.
             return { id: it.id, name: product ? pick(product, 'name') : it.name, qty: it.qty, price: it.price };
         }),
         subtotal,
@@ -139,9 +133,6 @@ async function submitOrder(e, items, subtotal) {
         const res = await fetch(window.TAROTLENS_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
         if (!data.ok) {
-            // 'stock' : le serveur a revérifié la disponibilité au moment de la commande
-            // (indépendamment de ce que le panier affichait) et refusé un ou plusieurs
-            // articles entre-temps passés en rupture — message dédié plutôt que générique.
             errEl.textContent = data.error === 'stock'
                 ? t('cart_orderErrorStock').replace('{items}', (data.items || []).join(', '))
                 : t('cart_orderError');
@@ -152,9 +143,6 @@ async function submitOrder(e, items, subtotal) {
         }
         root.innerHTML = `<div class="cart-empty"><p class="cart-empty-title">${t('cart_thanksTitle')}</p><p style="opacity:.7;margin-bottom:20px">${t('cart_thanksText')}</p><a class="btn btn-orange" href="index.html">${t('cart_backHome')}</a></div>`;
         window.ArcanaCart.clear();
-        // Le formulaire remplacé est plus court que le contenu précédent : sans ça,
-        // le scroll reste où l'utilisateur l'a laissé (près du bouton "Envoyer", en
-        // bas de page) et retombe sur le footer au lieu du message de confirmation.
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
         errEl.textContent = t('cart_orderError');
@@ -165,6 +153,4 @@ async function submitOrder(e, items, subtotal) {
 }
 
 render();
-// Rafraîchit noms/tags avec le catalogue live une fois chargé (window.PRODUCTS
-// est déjà réassigné par ArcanaProducts.load() ; on ne fait que redéclencher render()).
 window.ArcanaProducts.load().then(produits => { if (produits) render(); });

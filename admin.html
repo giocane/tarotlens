@@ -23,14 +23,12 @@
         .admin-logout { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 8px 18px; font-family: var(--font-body); font-weight: 600; font-size: 13px; cursor: pointer; }
         .admin-logout:hover { background: var(--ink); color: var(--cream); border-color: var(--ink); }
 
-        /* Connexion */
         .admin-login-box { max-width: 380px; margin: 80px auto; background: var(--white); border-radius: var(--radius); padding: 32px; text-align: center; }
         .admin-login-box h1 { font-family: var(--font-display); font-size: 28px; color: var(--orange); text-transform: uppercase; margin-bottom: 20px; }
         .admin-field { font-family: inherit; font-size: 15px; padding: 12px 16px; border: 2px solid rgba(26,22,20,.15); border-radius: 14px; background: var(--white); width: 100%; box-sizing: border-box; }
         .admin-field:focus { outline: 0; border-color: var(--orange); }
         .admin-error { color: #c0392b; font-size: 13px; margin-top: 10px; font-weight: 600; }
 
-        /* Onglets */
         .admin-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
         .admin-tab-btn { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 9px 20px; font-family: var(--font-body); font-weight: 700; font-size: 13px; letter-spacing: .5px; text-transform: uppercase; cursor: pointer; }
         .admin-tab-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
@@ -40,15 +38,12 @@
         .admin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
         .admin-muted { opacity: .6; font-size: 13px; }
 
-        /* Tables */
         .admin-table-wrap { background: var(--white); border-radius: var(--radius); overflow-x: auto; }
         table.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         table.admin-table th, table.admin-table td { padding: 10px 10px; text-align: left; border-bottom: 1px solid rgba(26,22,20,.08); vertical-align: top; }
         table.admin-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; opacity: .6; }
         table.admin-table tr:last-child td { border-bottom: 0; }
 
-        /* Commandes en cartes empilées sur mobile — 10 colonnes en scroll
-           horizontal étaient inutilisables sur téléphone. */
         @media (max-width: 760px) {
             #tab-commandes .admin-table-wrap { overflow-x: visible; }
             #tab-commandes table.admin-table thead { display: none; }
@@ -61,13 +56,11 @@
             #tab-commandes table.admin-table td > * { text-align: right; }
         }
 
-        /* Produits */
         .admin-prod-row { display: flex; align-items: center; gap: 14px; background: var(--white); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; }
         .admin-prod-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: linear-gradient(135deg,#ddd5c0,#c8c0a8); flex-shrink: 0; }
         .admin-prod-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
         .admin-prod-info strong { font-family: var(--font-display); font-size: 16px; text-transform: uppercase; color: var(--ink); font-weight: normal; letter-spacing: .3px; }
 
-        /* Modale édition produit */
         .admin-modal-panel { position: relative; width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; background: var(--cream); border-radius: var(--radius); box-shadow: 0 24px 60px rgba(0,0,0,.35); padding: 32px; }
         .admin-modal-title { font-family: var(--font-display); font-size: 26px; color: var(--orange); text-transform: uppercase; margin-bottom: 20px; }
         .admin-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -85,12 +78,10 @@
         .admin-form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; gap: 10px; flex-wrap: wrap; }
         .admin-help { font-size: 12px; opacity: .55; margin-top: -2px; margin-bottom: 10px; }
 
-        /* Toast */
         .admin-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 980px; font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 500; }
         .admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .admin-toast.err { background: #c0392b; }
 
-        /* Tableau de bord */
         .admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
         .admin-stat-card { background: var(--white); border-radius: 14px; padding: 18px 20px; }
         .admin-stat-value { font-family: var(--font-display); font-size: 30px; color: var(--orange); line-height: 1; }
@@ -101,7 +92,6 @@
         .admin-alert-row:last-child { border-bottom: 0; }
         .admin-alert-empty { font-size: 14px; opacity: .6; }
 
-        /* Statuts + filtre */
         .admin-badge-statut { display: inline-block; padding: 3px 10px; border-radius: 980px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .admin-badge-statut.statut-recue { background: #fce8b3; color: #7a4706; }
         .admin-badge-statut.statut-paye { background: #cfe8fc; color: #0a4a7a; }
@@ -128,7 +118,6 @@
         <a href="index.html" class="nav-logo" style="color:var(--orange);text-decoration:none;">TAROTLENS</a>
     </div>
 
-    <!-- CONNEXION -->
     <div class="admin-login-box" id="admin-login">
         <h1>Administration</h1>
         <form id="loginForm">
@@ -138,7 +127,6 @@
         </form>
     </div>
 
-    <!-- APP ADMIN -->
     <div id="admin-app" style="display:none">
         <div class="admin-panel-head">
             <h1 class="admin-title">Administration</h1>
@@ -154,7 +142,6 @@
             <button type="button" class="admin-tab-btn" data-tab="textes">Textes</button>
         </div>
 
-        <!-- TABLEAU DE BORD -->
         <div class="admin-tab-panel" id="tab-dashboard">
             <div class="admin-stats" id="dashboardStats"></div>
             <div class="admin-alert-box">
@@ -167,7 +154,6 @@
             </div>
         </div>
 
-        <!-- COMMANDES -->
         <div class="admin-tab-panel" id="tab-commandes">
             <div class="admin-panel-head">
                 <div class="admin-filters">
@@ -200,7 +186,6 @@
             </div>
         </div>
 
-        <!-- STOCK -->
         <div class="admin-tab-panel" id="tab-stock">
             <p class="admin-help">Quantité vide = produit non suivi (le site retombe sur le statut "en rupture" éditable dans l'onglet Produits). Quantité ≤ 3 mise en évidence.</p>
             <div class="admin-table-wrap">
@@ -220,7 +205,6 @@
             </div>
         </div>
 
-        <!-- EMAILING -->
         <div class="admin-tab-panel" id="tab-emailing">
             <div class="admin-panel-head">
                 <div class="admin-filters">
@@ -263,7 +247,6 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             </div>
         </div>
 
-        <!-- PRODUITS -->
         <div class="admin-tab-panel" id="tab-produits">
             <div class="admin-panel-head">
                 <span class="admin-muted">Flèches = réordonner l'affichage sur le site.</span>
@@ -272,7 +255,6 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             <div id="produitsListe"></div>
         </div>
 
-        <!-- TEXTES -->
         <div class="admin-tab-panel" id="tab-textes">
             <p class="admin-help">Tous les textes du site (FR + EN), y compris les titres des bannières d'accueil, les mentions légales et la page contact. Les champs contenant <code>{n}</code> ou <code>{name}</code> doivent garder ce repère tel quel : il est remplacé automatiquement (quantité, nom de produit…).</p>
             <div class="admin-panel-head">
@@ -288,7 +270,6 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
     </div>
 </div>
 
-<!-- MODALE ÉDITION PRODUIT -->
 <div class="modal-overlay" id="produitModal" role="dialog" aria-modal="true">
     <div class="admin-modal-panel">
         <button class="modal-close" id="produitModalClose" aria-label="Fermer" type="button">&times;</button>
@@ -346,9 +327,6 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
 const API_URL = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
 const KEY_STORAGE = 'tarotlens_admin_key';
 const STATUTS = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié', 'Annulée'];
-// Libellés affichés dans le menu déroulant de la colonne "Statut commande" —
-// le mot "commande" est déjà dans l'en-tête de colonne, inutile de le répéter
-// sur chaque option (la valeur envoyée au backend reste le libellé complet).
 const STATUT_LABELS = {
     'Commande reçue': 'Reçue',
     'Paiement validé': 'Paiement validé',
@@ -356,8 +334,6 @@ const STATUT_LABELS = {
     'Expédié': 'Expédié',
     'Annulée': 'Annulée',
 };
-// Espaces/accents dans les libellés de statut -> pas utilisables tels quels comme
-// classe CSS (un espace scinderait en plusieurs classes), d'où cette table.
 const STATUT_CLASSES = {
     'Commande reçue': 'statut-recue',
     'Paiement validé': 'statut-paye',
@@ -367,8 +343,8 @@ const STATUT_CLASSES = {
 };
 
 const getCle = () => { try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } };
-const setCle = (v) => { try { localStorage.setItem(KEY_STORAGE, v); } catch { /* stockage indisponible */ } };
-const effacerCle = () => { try { localStorage.removeItem(KEY_STORAGE); } catch { /* stockage indisponible */ } };
+const setCle = (v) => { try { localStorage.setItem(KEY_STORAGE, v); } catch {   } };
+const effacerCle = () => { try { localStorage.removeItem(KEY_STORAGE); } catch {   } };
 
 function escapeHTML(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -383,7 +359,6 @@ function toast(msg, isError) {
     toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
 }
 
-// Toujours en POST : la clé admin ne doit jamais transiter par l'URL.
 async function api(action, params = {}) {
     try {
         const res = await fetch(API_URL, {
@@ -397,7 +372,6 @@ async function api(action, params = {}) {
     }
 }
 
-/* ==================== Connexion ==================== */
 
 async function tenterConnexion(cle, silencieux) {
     setCle(cle);
@@ -428,7 +402,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 const cleExistante = getCle();
 if (cleExistante) tenterConnexion(cleExistante, true);
 
-/* ==================== Onglets ==================== */
 
 function switchTab(name) {
     document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
@@ -441,9 +414,6 @@ function switchTab(name) {
     if (name === 'textes') chargerTextes();
 }
 
-// Macaron rouge sur l'onglet Commandes = nombre de commandes "à traiter"
-// (statut Commande reçue), pour repérer en un coup d'œil qu'il y a du
-// nouveau sans avoir à ouvrir l'onglet.
 function majBadgeCommandes(commandes) {
     const badge = document.getElementById('badgeCommandes');
     const n = commandes.filter(c => c.statut === 'Commande reçue').length;
@@ -451,7 +421,6 @@ function majBadgeCommandes(commandes) {
     badge.hidden = n === 0;
 }
 
-/* ==================== Tableau de bord ==================== */
 
 async function chargerDashboard() {
     document.getElementById('dashboardStats').innerHTML = '<div class="admin-stat-card">Chargement…</div>';
@@ -499,14 +468,9 @@ async function chargerDashboard() {
 }
 document.querySelectorAll('.admin-tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
-/* ==================== Commandes ==================== */
 
 let commandesCache = [];
 
-// Archivage des commandes Expédié/Annulée : purement visuel côté admin (pas
-// de colonne Sheet), stocké dans ce navigateur. Clé = empreinte de contenu
-// (pas c.row) pour rester valide même si des lignes sont supprimées/décalées
-// dans le Sheet entre deux visites.
 const ARCHIVE_KEY = 'tarotlens_commandes_archivees';
 function empreinteCommande(c) { return [c.date, c.email, c.items, c.subtotal].join('|'); }
 function getArchivees() {
@@ -524,8 +488,6 @@ async function chargerCommandes() {
     renderCommandes();
 }
 
-// Change le statut d'une commande et notifie le résultat ; si un numéro de
-// suivi est fourni (statut Expédié), on le renvoie aussi pour être stocké.
 async function enregistrerStatut(row, statut, suivi) {
     const rep = await api('adminSetStatutCommande', { row, statut, suivi: suivi || '' });
     if (rep.ok) {
@@ -539,10 +501,6 @@ async function enregistrerStatut(row, statut, suivi) {
     }
 }
 
-// Filtres partagés par renderCommandes() et le bouton d'archivage groupé —
-// statut, texte libre (nom/email/tél) et plage de dates. L'archivage
-// visible/masqué reste séparé (voir renderCommandes) car le bouton groupé
-// doit voir les commandes archivables même si elles sont actuellement masquées.
 function commandesFiltreesBase() {
     const filtre = document.getElementById('filtreStatut').value;
     const recherche = document.getElementById('rechercheCommande').value.trim().toLowerCase();
@@ -700,7 +658,6 @@ const COLONNES_COMMANDES = [
 ];
 
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
-    // Neutralise l'injection de formule pour un champ qui commencerait par =, +, -, @ (Excel/Sheets).
     const champCSV = (v) => {
         let s = String(v == null ? '' : v);
         if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
@@ -728,7 +685,6 @@ document.getElementById('exportXlsxBtn').addEventListener('click', () => {
     XLSX.writeFile(classeur, 'tarotlens-commandes.xlsx');
 });
 
-/* ==================== Stock ==================== */
 
 async function chargerStock() {
     const el = document.getElementById('stockBody');
@@ -788,7 +744,6 @@ function renderInterets(interets) {
     });
 }
 
-/* ==================== Emailing ==================== */
 
 let emailingDestinataires = [];
 
@@ -809,8 +764,6 @@ async function chargerEmailing() {
     }
 }
 
-// Dédoublonne par e-mail (insensible à la casse) : un même client peut avoir
-// plusieurs commandes ou demandes, on ne veut pas lui écrire deux fois.
 function construireListeEmailing(bruts) {
     const parEmail = new Map();
     bruts.forEach(({ name, email }) => {
@@ -868,10 +821,6 @@ document.getElementById('ouvrirEmailingBtn').addEventListener('click', () => {
     if (!destinataires.length) { toast('Sélectionne au moins un destinataire.', true); return; }
     const sujet = document.getElementById('emailingSujet').value.trim();
     const corps = document.getElementById('emailingCorps').value;
-    // Destinataires uniquement en Cci (bcc) — jamais en "À"/"Cc" — pour qu'aucun
-    // client ne voie l'adresse des autres. "À" pointe vers TarotLens elle-même
-    // (plutôt que vide) : plus propre pour l'affichage et moins susceptible
-    // d'être marqué comme suspect par les filtres anti-spam.
     const mailto = `mailto:TarotLens129@gmail.com?bcc=${encodeURIComponent(destinataires.join(','))}&subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
     if (mailto.length > 1800) {
         toast(`Lien trop long pour ${destinataires.length} destinataires — réduis la sélection (par lots de 40-50).`, true);
@@ -880,12 +829,8 @@ document.getElementById('ouvrirEmailingBtn').addEventListener('click', () => {
     window.location.href = mailto;
 });
 
-/* ==================== Produits ==================== */
 
 let produitsCache = [];
-// Quantité par id, alimentée par cet onglet et par l'onglet Stock — sert à
-// avertir dans la modale produit quand la case "en stock" est sans effet
-// (produit suivi dans l'onglet Stock, voir ouvrirFormProduit).
 let stockParIdCache = {};
 
 async function chargerProduits() {
@@ -904,10 +849,6 @@ function badgeRupture(p) {
     return p.inStock === false ? ' — marqué en rupture' : '';
 }
 
-// Flèches ↑↓ groupées par catégorie (voir deplacerProduit côté serveur, qui
-// saute les lignes d'autres catégories) : sans ce regroupement visuel, une
-// ligne "accessoire" intercalée entre deux "decks" rendait l'ordre affiché
-// difficile à lire par rapport à ce que fait réellement le clic.
 const CATEGORIE_LABELS = { deck: 'Decks', accessory: 'Accessoires', bundle: 'Bundles' };
 
 function renderProduitsListe() {
@@ -1102,14 +1043,6 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
     }
 });
 
-/* ==================== Textes du site ==================== */
-// Duplique volontairement le dictionnaire par défaut de i18n.js (sert de
-// valeur pré-remplie / placeholder ici) : à tenir à jour si le texte codé en
-// dur du site change. hero_cta pilote le bouton des bannières d'accueil (le
-// titre de chaque bannière, lui, vient directement du nom du produit mis en
-// avant — voir la case "hero" dans la fiche produit) ; le reste correspond
-// aux attributs data-i18n du site (boutons, menus, panier, contact, mentions
-// légales…).
 const TEXTES_DEFAUTS_FR = {
     hero_cta: "ACHETEZ VOTRE TAROT",
     nav_decks: "LES DECKS", nav_accessories: "ACCESSOIRES", nav_cartAria: "Panier", nav_homeAria: "TarotLens, accueil",
@@ -1186,8 +1119,6 @@ const TEXTES_DEFAUTS_EN = {
     lang_switchLabel: "Pardon my french!", lang_switchAria: "Revenir au français",
 };
 
-// Regroupement purement cosmétique (accordéon de la longue liste de champs) —
-// n'affecte pas les clés stockées, juste l'organisation visuelle du formulaire.
 const TEXTES_GROUPES = [
     { titre: "Bannières d'accueil", champs: [
         { k: 'hero_cta', l: 'Bouton « Précommander » (toutes les bannières)', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },

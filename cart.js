@@ -1,4 +1,3 @@
-// TAROTLENS — panier partagé (localStorage)
 window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
 
 (function () {
@@ -42,8 +41,6 @@ window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pK
     document.addEventListener('DOMContentLoaded', wireNav);
 })();
 
-// Disponibilité du stock : lue depuis l'onglet "Stock" du Sheet (édité à la main
-// par le client), avec un cache court pour éviter d'appeler l'API à chaque page.
 window.ArcanaStock = (function () {
     const CACHE_KEY = 'tarotlens_stock_cache';
     const TTL_MS = 30 * 1000;
@@ -58,7 +55,7 @@ window.ArcanaStock = (function () {
     }
 
     function writeCache(stock) {
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), stock })); } catch { /* stockage indisponible, tant pis */ }
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), stock })); } catch {   }
     }
 
     async function load() {
@@ -68,11 +65,10 @@ window.ArcanaStock = (function () {
             const res = await fetch(window.TAROTLENS_ENDPOINT);
             const json = await res.json();
             if (json.ok) { data = json.stock; writeCache(data); }
-        } catch { /* stock indisponible : le frontend retombe sur le flag inStock statique */ }
+        } catch {   }
         return data;
     }
 
-    // null = produit non suivi dans l'onglet "Stock" -> le frontend retombe sur data.js
     function qty(id) {
         if (!data) return null;
         const v = data[id];

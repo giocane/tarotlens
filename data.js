@@ -1,15 +1,4 @@
-// TAROTLENS — données produits
-// Rupture de stock : ajouter `inStock: false,` sur le produit concerné (absent = en stock).
-// Si le produit a une ligne dans l'onglet "Stock" du Sheet (quantité gérée à la
-// main par le client, voir google-apps-script/Code.gs), cette quantité prend le
-// pas sur `inStock` pour l'affichage frontend (rupture, stock faible, dispo).
-// `hero`: doit être tenu à jour à la main pour matcher la case "hero" cochée dans
-// l'admin (colonne "hero" du Sheet) — ce fichier pilote le tout premier rendu, avant
-// que le catalogue live ne réponde (1-2s). Oublier de le mettre à jour après un
-// changement de mise en avant fait réapparaître brièvement l'ancien produit hero
-// à chaque chargement, jusqu'à ce que le catalogue live corrige l'affichage.
 window.PRODUCTS = [
-    // ── DECKS ── (ordre d'affichage volontaire, pas par id croissant)
     { id: 3, name: "Too Much Tarot",      tag: "Tarot",      cat: "deck",      cards: 82, format: "Standard 70×120mm",  weight: "350g papier, finition Soft Touch", delivery: "Livré sans boîte, dans un bandana trop beau ;)",             price: 58, badge: null,  glyph: "✶", grad: "g-toomuch",   img: "images/toomuch-card.jpg",
       images: ["images/toomuch-card.jpg", "videos/toomuch-hero.mp4", "videos/toomuch-detail.mp4"],
       weight_en: "350g paper, Soft Touch finish", delivery_en: "No box, delivered in a gorgeous bandana ;)",
@@ -29,7 +18,6 @@ window.PRODUCTS = [
       images: ["images/bundle-card.jpg", "images/bundle-2.jpg"],
       desc: "Deux univers TarotLens, une seule commande. Le Bundle réunit le Has Been Tarot, nostalgique et kitsch à souhait — Once famous, 4ever Fabulous — et le Too Much Lenormand, tout en paillettes, glitter et couleurs, parce que Too Much is never enough.\n\n133 cartes cumulées pour tirer aussi bien un tarot chargé de souvenirs qu'un Lenormand pétillant et sans aucune retenue.",
       desc_en: "Two TarotLens worlds, one single order. The Bundle brings together the Has Been Tarot — nostalgic and kitsch to the max, Once famous, 4ever Fabulous — and the Too Much Lenormand, all sequins, glitter and color, because Too Much is never enough.\n\n133 cards combined, for pulling both a tarot loaded with memories and a Lenormand that's sparkly and holds absolutely nothing back." },
-    // ── ACCESSOIRES ──
     { id: 5, name: "Bougie Martini",      tag: "Accessoire", cat: "accessory", cards: null, format: "5\" L × 7,5\" H | 9 fl oz", weight: null,                 delivery: "Récipient : verre à martini — Type de cire : gel",                 price: 29, badge: null,  glyph: "✿", grad: "g-acc1",      img: "images/Bougies/bougie-martini.jpg",
       name_en: "Martini Candle", tag_en: "Accessory", format_en: "5\" L × 7.5\" H | 9 fl oz", delivery_en: "Container: martini glass — Wax type: gel",
       desc: "Audacieuse et vivifiante, cette bougie d'inspiration cocktail classique dégage une sophistication discrète avec une touche d'intrigue.\n\nCoulée à la main avec une cire gel de qualité supérieure, 100% naturelle et sans parabène, et une mèche en coton, présentée dans notre verrerie réutilisable et conçue pour être rechargée à l'aide de nos kits de recharge, alliant indulgence et durabilité.\n\nParfum : Sans parfum",

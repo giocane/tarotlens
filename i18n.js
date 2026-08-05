@@ -1,4 +1,3 @@
-// TAROTLENS — i18n (FR / EN)
 (function () {
     const LANG_KEY = 'tarotlens_lang';
 
@@ -185,10 +184,6 @@
         return obj[field];
     }
 
-    // Remplit un élément avec du texte pouvant contenir des retours à la ligne
-    // (ex. titres de bannière) sans jamais passer par innerHTML — construction
-    // de nœuds texte + <br> pour éviter tout risque d'injection avec un texte
-    // qui peut désormais venir du back office (voir chargerTextesLive).
     function setTexteMultiligne(el, texte) {
         el.textContent = '';
         String(texte).split('\n').forEach((ligne, i) => {
@@ -227,10 +222,6 @@
     applyStaticI18n();
     renderLangToggle();
 
-    // ==================== Textes personnalisés (back office) ====================
-    // Duplique volontairement l'URL de endpoint de cart.js (window.TAROTLENS_ENDPOINT) :
-    // i18n.js se charge avant cart.js (voir README, ordre de chargement des scripts),
-    // donc cette variable n'existe pas encore ici. Même URL que cart.js/admin.html.
     const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
     const TEXTES_CACHE_KEY = 'tarotlens_textes_cache';
     const TEXTES_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -243,12 +234,9 @@
         } catch { return null; }
     }
     function ecrireCacheTextes(textes) {
-        try { localStorage.setItem(TEXTES_CACHE_KEY, JSON.stringify({ ts: Date.now(), textes })); } catch { /* stockage indisponible, tant pis */ }
+        try { localStorage.setItem(TEXTES_CACHE_KEY, JSON.stringify({ ts: Date.now(), textes })); } catch {   }
     }
 
-    // Fusionne les textes personnalisés (édités dans l'onglet Textes de l'admin)
-    // par-dessus le dictionnaire par défaut, puis ré-applique data-i18n partout
-    // sur la page. Une clé/langue vide dans le Sheet = on garde le texte d'origine.
     function fusionnerTextes(textes) {
         if (!textes) return;
         Object.keys(textes).forEach(cle => {
@@ -270,7 +258,7 @@
                 fusionnerTextes(json.textes);
                 ecrireCacheTextes(json.textes);
             }
-        } catch { /* pas grave, on garde les textes par défaut */ }
+        } catch {   }
     }
     chargerTextesLive();
 })();

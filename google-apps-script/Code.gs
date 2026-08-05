@@ -1,67 +1,19 @@
-// TAROTLENS — reçoit les commandes (panier.js), les inscriptions "prévenez-moi du
-// retour en stock" (index.html) et les messages du formulaire de contact
-// (contact.html), les ajoute au Google Sheet (sauf contact, transmis par e-mail
-// seul), envoie un e-mail de commande, sert la disponibilité du stock et le
-// catalogue produits, et expose
-// l'API admin (admin.html : commandes, stock, produits, upload photos).
-// À coller dans Extensions > Apps Script du Sheet cible, puis déployer en Web App
-// (Exécuter en tant que : Moi — Accès : Tous). Voir le README à côté de ce fichier.
-//
-// Onglets attendus dans le Sheet :
-//   - "Commandes"       : archive des commandes (remplie automatiquement). Colonnes :
-//                         date, nom, email, tel, adresse, articles, sous-total,
-//                         langue, statut (voir STATUTS_COMMANDE), numéro de suivi
-//                         (rempli seulement au statut Expédié), articles au format
-//                         JSON [{id,qty}] (usage interne, voir decrementerStockCommande),
-//                         stock déjà décrémenté (booléen, usage interne — garantit
-//                         un décompte une seule fois même si le statut repasse
-//                         plusieurs fois par "Paiement validé"). Chaque changement de
-//                         statut (sauf Annulée) envoie un e-mail auto au client dans
-//                         sa langue — voir MAILS_STATUT_COMMANDE.
-//   - "Intérêts stock"  : inscriptions "prévenez-moi" (remplie automatiquement).
-//   - "Stock"           : colonnes [id, nom, quantité disponible], éditable à la
-//                         main ou depuis admin.html. Une ligne par produit.
-//   - "Produits"        : catalogue complet, éditable depuis admin.html (ou à la
-//                         main). Ligne d'en-tête exacte : voir PRODUITS_ENTETES
-//                         ci-dessous. Colonne "images" = URLs séparées par "|",
-//                         la première sert de visuel de couverture.
-//   - "Textes"          : tous les textes du site (dictionnaire i18n FR/EN +
-//                         titres des bannières), éditables depuis l'onglet
-//                         Textes de admin.html. Créé automatiquement au premier
-//                         enregistrement si absent — colonnes [cle, fr, en].
 
 var ORDER_NOTIFY_EMAIL = 'TarotLens129@gmail.com';
 
-// URL affichée en pied des e-mails HTML (voir mailEnveloppeHtml) — à mettre à
-// jour si un nom de domaine est acheté un jour.
 var MAIL_SITE_URL = 'https://tarotlens.pages.dev';
 
-// Sel fixe combiné à la clé admin avant hachage (défense en profondeur contre les
-// rainbow tables ; la clé elle-même n'est jamais stockée en clair, voir definirCleAdmin).
 var SALT = 'tarotlens-once-famous-4ever-fabulous';
 
-// Anti brute-force sur adminLogin : au-delà de ce nombre d'échecs, tout nouvel
-// essai (même avec la bonne clé) est bloqué jusqu'à expiration de la fenêtre
-// glissante ci-dessous — voir tropDeTentativesLogin/enregistrerTentativeLogin.
 var LOGIN_MAX_TENTATIVES = 8;
-var LOGIN_FENETRE_SECONDES = 900; // 15 min
+var LOGIN_FENETRE_SECONDES = 900;
 
 var STATUTS_COMMANDE = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié', 'Annulée'];
 
-// Anciens libellés de statut (avant l'overhaul du workflow) encore présents sur
-// des commandes historiques du Sheet — mappés à la volée dans
-// listerCommandesBrutes() pour un affichage correct immédiat, et corrigeables
-// définitivement dans le Sheet via le menu "Corriger les anciens statuts".
 var STATUTS_LEGACY_MAP = { 'Nouvelle': 'Commande reçue', 'Expédiée': 'Expédié' };
 
-// Statuts qui déclenchent un e-mail automatique au client (voir
-// envoyerMailStatutCommande) — Annulée est un statut interne, pas notifié.
 var STATUTS_NOTIFIES = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
 
-// Contenu des e-mails de suivi de commande, par statut et par langue —
-// juste le sujet et le message central, l'habillage (bandeau logo, pied de
-// page) et la formule de politesse sont ajoutés par mailCorpsHtml/
-// mailEnveloppeHtml pour rester cohérents entre les 4 statuts.
 var MAILS_STATUT_COMMANDE = {
     'Commande reçue': {
         fr: { subject: 'TarotLens — commande reçue', message: 'Nous avons bien reçu votre commande, merci ! Elle est en cours de traitement, nous vous tiendrons informé(e) de son avancement.' },
@@ -81,31 +33,22 @@ var MAILS_STATUT_COMMANDE = {
     },
 };
 
-// Formule d'appel/de politesse, par langue — partagée par les 4 e-mails.
 var MAIL_I18N = {
     fr: { greeting: 'Bonjour', signoff: 'À bientôt,', team: 'L\'équipe TarotLens' },
     en: { greeting: 'Hi', signoff: 'See you soon,', team: 'The TarotLens team' },
 };
 
-// Quantité à partir de laquelle un produit est signalé "stock faible" dans le
-// digest quotidien (voir envoyerDigestQuotidien).
 var SEUIL_STOCK_FAIBLE = 2;
 
 var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
     'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
     'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero'];
 
-// Onglet "Textes" : tous les textes du site (dictionnaire i18n de i18n.js +
-// titres des bannières d'accueil), éditables depuis l'onglet Textes de
-// admin.html. Une ligne vide (fr et en vides) = le site garde son texte
-// d'origine (celui codé en dur dans i18n.js) — voir listerTextes/fusionnerTextes.
 var TEXTES_ENTETES = ['cle', 'fr', 'en'];
 
 var DOSSIER_PHOTOS = 'TarotLens - Photos produits';
-var TAILLE_MAX_PHOTO = 8 * 1024 * 1024; // 8 Mo décodés
+var TAILLE_MAX_PHOTO = 8 * 1024 * 1024;
 
-// Comparaison tolérante aux accents mal encodés (NFC/NFD) et aux espaces
-// parasites, pour ne jamais retomber silencieusement sur getActiveSheet().
 function findSheet(ss, name) {
     var target = name.normalize('NFC').trim();
     var sheets = ss.getSheets();
@@ -115,10 +58,7 @@ function findSheet(ss, name) {
     return null;
 }
 
-/* ==================== Menu ==================== */
 
-// Liste de secours pour verifierOngletStock, utilisée uniquement si l'onglet
-// "Produits" n'existe pas encore (avant le tout premier import).
 var PRODUITS_ATTENDUS_SECOURS = [
     { id: 1, nom: 'Has Been Tarot' },
     { id: 2, nom: 'Too Much Lenormand' },
@@ -146,14 +86,11 @@ function produitsAttendusPourDiagnostic(ss) {
     if (sh) {
         try {
             return listerProduits(ss).map(function (p) { return { id: p.id, nom: p.name }; });
-        } catch (e) { /* tombe sur la liste de secours ci-dessous */ }
+        } catch (e) {   }
     }
     return PRODUITS_ATTENDUS_SECOURS;
 }
 
-// Diagnostic manuel : relit l'onglet "Stock" comme le fait doGet, et affiche
-// ce qui sera réellement renvoyé au frontend (lignes lues, ids manquants,
-// quantités non numériques), pour éviter de redécouvrir un stock vide après coup.
 function verifierOngletStock() {
     var ui = SpreadsheetApp.getUi();
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -196,7 +133,6 @@ function verifierOngletStock() {
     ui.alert(lignes.join('\n'));
 }
 
-/* ==================== Auth admin ==================== */
 
 function hacherCleAdmin(cle) {
     var octets = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(cle || '') + '|' + SALT);
@@ -207,9 +143,6 @@ function getAdminKeyHash() {
     return PropertiesService.getScriptProperties().getProperty('ADMIN_KEY_HASH') || '';
 }
 
-// Utilities.getUuid() s'appuie sur un générateur aléatoire cryptographiquement
-// sûr (RFC 4122 v4) ; deux UUID concaténés sans tirets donnent 256 bits
-// d'entropie, largement suffisant pour une clé admin.
 function genererCleAdminAleatoire() {
     return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
 }
@@ -231,7 +164,6 @@ function definirCleAdmin() {
         + '\n\nSaisis-la dans admin.html pour t\'y connecter.');
 }
 
-/* ==================== Helpers Sheet <-> objets ==================== */
 
 function zip(headers, valeurs) {
     var obj = {};
@@ -258,7 +190,6 @@ function texteOuNull(v) {
     return s === '' ? null : s;
 }
 
-/* ==================== Produits ==================== */
 
 function getSheetProduits(ss) {
     var sh = findSheet(ss, 'Produits');
@@ -298,9 +229,6 @@ function produitDepuisLigne(o) {
     };
 }
 
-// L'ordre d'affichage sur le site suit l'ordre des lignes dans le Sheet (pas un
-// tri par id) : ça laisse le client réordonner ses produits en glissant des
-// lignes, comme dans un tableur classique.
 function listerProduits(ss) {
     var sh = getSheetProduits(ss);
     return sheetToObjects(sh).map(produitDepuisLigne);
@@ -367,12 +295,6 @@ function supprimerProduit(ss, id) {
     throw new Error('Produit id ' + id + ' introuvable.');
 }
 
-// Déplace le produit au-delà de son voisin de MÊME catégorie le plus proche
-// (haut/bas) — les lignes d'autres catégories intercalées entre les deux sont
-// simplement décalées d'un cran, pas traitées comme des obstacles. Sans ça,
-// un accessoire glissé entre deux decks empêchait de réordonner les decks
-// entre eux d'un seul clic. C'est toujours l'ordre des lignes du Sheet qui
-// pilote l'ordre d'affichage sur le site (voir listerProduits()).
 function deplacerProduit(ss, id, sens) {
     var sh = getSheetProduits(ss);
     var rows = sh.getDataRange().getValues();
@@ -396,7 +318,7 @@ function deplacerProduit(ss, id, sens) {
     } else {
         for (var b = idx + 1; b < data.length; b++) { if (data[b][catCol] === cat) { voisin = b; break; } }
     }
-    if (voisin < 0) return; // déjà en haut/bas de sa catégorie
+    if (voisin < 0) return;
 
     var deplace = data.splice(idx, 1)[0];
     data.splice(voisin, 0, deplace);
@@ -422,7 +344,6 @@ function actionProduitsPublic() {
     return resultat;
 }
 
-/* ==================== Textes du site (i18n back office) ==================== */
 
 function getOrCreateSheetTextes(ss) {
     var sh = findSheet(ss, 'Textes');
@@ -433,8 +354,6 @@ function getOrCreateSheetTextes(ss) {
     return sh;
 }
 
-// {cle: {fr, en}} pour chaque ligne ayant au moins une des deux langues
-// renseignée — une clé absente d'ici = le site garde son texte d'origine.
 function listerTextes(ss) {
     var sh = findSheet(ss, 'Textes');
     if (!sh) return {};
@@ -463,8 +382,6 @@ function actionTextesPublic() {
     return resultat;
 }
 
-// map = {cle: {fr, en}} — envoyé en entier par admin.html à chaque
-// enregistrement (voir renderTextesTab côté admin) ; upsert ligne par ligne.
 function sauvegarderTextes(ss, map) {
     map = map || {};
     var sh = getOrCreateSheetTextes(ss);
@@ -497,7 +414,6 @@ function sauvegarderTextes(ss, map) {
     return { ok: true };
 }
 
-/* ==================== Import initial depuis data.js ==================== */
 
 function importerProduitsDepuisDataJs() {
     var ui = SpreadsheetApp.getUi();
@@ -533,9 +449,6 @@ function importerProduitsDepuisDataJs() {
     ui.alert(lignes.length + ' produit(s) importé(s) dans l\'onglet "Produits".');
 }
 
-// Ordre volontaire (pas par id croissant) : reproduit l'ordre d'affichage
-// actuel du site (Too Much Tarot, Has Been Tarot, Too Much Lenormand, Bundle),
-// piloté par l'ordre des lignes du Sheet — voir listerProduits().
 var PRODUITS_IMPORT = [
     {
         id: 3, cat: 'deck', name: 'Too Much Tarot', name_en: '', tag: 'Tarot', tag_en: '',
@@ -649,16 +562,15 @@ var PRODUITS_IMPORT = [
     },
 ];
 
-/* ==================== Commandes (admin) ==================== */
 
 function listerCommandesBrutes(sheet) {
     var rows = sheet.getDataRange().getValues();
     var out = [];
     var debut = 0;
-    if (rows.length && !(rows[0][0] instanceof Date)) debut = 1; // ligne d'en-tête probable
+    if (rows.length && !(rows[0][0] instanceof Date)) debut = 1;
     for (var i = debut; i < rows.length; i++) {
         var r = rows[i];
-        if (!r[1] && !r[2]) continue; // ni nom ni email -> ligne vide
+        if (!r[1] && !r[2]) continue;
         var statutBrut = r[8] || 'Commande reçue';
         out.push({
             row: i + 1,
@@ -680,10 +592,6 @@ function supprimerCommande(ss, row) {
     sh.deleteRow(row);
 }
 
-// Réécrit dans le Sheet les anciens libellés de statut (voir
-// STATUTS_LEGACY_MAP) par leur équivalent actuel — à lancer une fois depuis le
-// menu TarotLens. listerCommandesBrutes() les affiche déjà correctement même
-// sans ça ; ce menu corrige la valeur stockée pour de bon (exports, tri, etc.).
 function migrerAnciensStatutsCommandes() {
     var ui = SpreadsheetApp.getUi();
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -700,8 +608,6 @@ function migrerAnciensStatutsCommandes() {
         : 'Aucune commande à migrer — tous les statuts sont déjà à jour.');
 }
 
-// Échappe le texte injecté dans les e-mails HTML (nom du client, numéro de
-// suivi) — ce sont des valeurs saisies par l'utilisateur au checkout.
 function echapperHtmlMail(s) {
     return String(s == null ? '' : s)
         .replace(/&/g, '&amp;')
@@ -711,8 +617,6 @@ function echapperHtmlMail(s) {
         .replace(/'/g, '&#39;');
 }
 
-// Corps HTML commun aux 4 e-mails de statut : civilité, message du statut,
-// encart numéro de suivi (si fourni) et formule de politesse.
 function mailCorpsHtml(i18n, texte, name, suivi) {
     var html = '<p style="margin:0 0 16px;font-size:16px;">' + echapperHtmlMail(i18n.greeting) + ' ' + echapperHtmlMail(name) + ',</p>'
         + '<p style="margin:0 0 20px;font-size:15px;line-height:1.6;">' + echapperHtmlMail(texte.message) + '</p>';
@@ -726,8 +630,6 @@ function mailCorpsHtml(i18n, texte, name, suivi) {
     return html;
 }
 
-// Habillage commun (bandeau logo TarotLens, carte blanche, pied de page) —
-// couleurs reprises de styles.css (--orange, --cream, --purple, --ink).
 function mailEnveloppeHtml(corpsHtml) {
     return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F5EDCC;">'
         + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5EDCC;padding:32px 16px;font-family:\'Poppins\',Arial,sans-serif;">'
@@ -743,12 +645,8 @@ function mailEnveloppeHtml(corpsHtml) {
         + '</table></td></tr></table></body></html>';
 }
 
-// Envoie au client l'e-mail de suivi correspondant au nouveau statut, dans la
-// langue de sa commande (repli sur le français si langue inconnue). Envoi en
-// multipart (htmlBody + body texte brut) : les clients qui n'affichent pas le
-// HTML retombent sur le texte brut.
 function envoyerMailStatutCommande(commande, statut, suivi) {
-    if (STATUTS_NOTIFIES.indexOf(statut) < 0) return; // ex. Annulée : pas de mail auto
+    if (STATUTS_NOTIFIES.indexOf(statut) < 0) return;
     if (!commande.email) return;
     var tpl = MAILS_STATUT_COMMANDE[statut];
     var lang = (String(commande.lang || '').toLowerCase() === 'en') ? 'en' : 'fr';
@@ -782,14 +680,6 @@ function definirStatutCommande(ss, row, statut, suivi) {
     var r = sh.getRange(row, 1, 1, 12).getValues()[0];
     envoyerMailStatutCommande({ name: r[1], email: r[2], lang: r[7] }, statut, suivi);
 
-    // Décompte le Stock au premier statut atteint à partir de "Paiement validé"
-    // inclus (et pas seulement une transition exacte vers ce statut) : dans la
-    // pratique, l'admin saute parfois directement à "En préparation" ou
-    // "Expédié" sans passer par "Paiement validé" au préalable, et le stock
-    // doit quand même être décompté. "Annulée" ne décompte jamais. La colonne
-    // 12 (posée à true juste après le premier décompte) garantit que ça
-    // n'arrive qu'une seule fois par commande, quel que soit le nombre
-    // d'allers-retours ultérieurs sur les statuts.
     var indexAtteint = PROGRESSION_STATUTS_STOCK.indexOf(statut);
     var indexSeuil = PROGRESSION_STATUTS_STOCK.indexOf('Paiement validé');
     if (indexAtteint >= indexSeuil && r[11] !== true) {
@@ -798,12 +688,8 @@ function definirStatutCommande(ss, row, statut, suivi) {
     }
 }
 
-// Ordre de progression utilisé uniquement pour déclencher le décompte de
-// stock (voir definirStatutCommande) — "Annulée" en est volontairement
-// exclu (indexOf renvoie -1, donc jamais >= au seuil).
 var PROGRESSION_STATUTS_STOCK = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
 
-/* ==================== Stock (admin) ==================== */
 
 function listerStock(ss) {
     var sh = findSheet(ss, 'Stock');
@@ -831,14 +717,6 @@ function definirStock(ss, id, nom, qty) {
     sh.appendRow([Number(id), nom || '', Number(qty) || 0]);
 }
 
-// Décrémente le Stock pour les articles d'une commande passée au statut
-// "Paiement validé" (voir definirStatutCommande, qui garantit l'appel une
-// seule fois par commande via la colonne "stock déjà décrémenté"). Ne touche
-// que les produits ayant une ligne dans l'onglet Stock — un id absent =
-// produit non suivi, comme partout ailleurs dans l'app. itemsJson vient de la
-// colonne interne posée par doPost (voir sendOrderEmail/doPost) ; une valeur
-// vide/invalide (anciennes commandes antérieures à cette fonctionnalité) ne
-// fait rien.
 function decrementerStockCommande(ss, itemsJson) {
     var items;
     try { items = JSON.parse(itemsJson || '[]'); } catch (e) { return; }
@@ -860,7 +738,6 @@ function decrementerStockCommande(ss, itemsJson) {
     });
 }
 
-/* ==================== Digest quotidien (automatisation) ==================== */
 
 function listerInteretsStock(ss) {
     var sh = findSheet(ss, 'Intérêts stock');
@@ -868,10 +745,10 @@ function listerInteretsStock(ss) {
     var rows = sh.getDataRange().getValues();
     var out = [];
     var debut = 0;
-    if (rows.length && !(rows[0][0] instanceof Date)) debut = 1; // ligne d'en-tête probable
+    if (rows.length && !(rows[0][0] instanceof Date)) debut = 1;
     for (var i = debut; i < rows.length; i++) {
         var r = rows[i];
-        if (!r[1] && !r[2]) continue; // ni email ni produit -> ligne vide
+        if (!r[1] && !r[2]) continue;
         out.push({
             row: i + 1,
             date: (r[0] instanceof Date) ? r[0].toISOString() : String(r[0] || ''),
@@ -882,10 +759,6 @@ function listerInteretsStock(ss) {
     return out;
 }
 
-// Supprime une demande "prévenez-moi" une fois traitée — utilisé par le
-// bouton dédié dans l'onglet Stock de admin.html (voir aussi la note dans
-// envoyerDigestQuotidien : c'était déjà la façon prévue de les retirer,
-// juste sans bouton avant).
 function supprimerInteret(ss, row) {
     var sh = findSheet(ss, 'Intérêts stock');
     if (!sh) throw new Error('Onglet "Intérêts stock" introuvable.');
@@ -893,27 +766,15 @@ function supprimerInteret(ss, row) {
     sh.deleteRow(row);
 }
 
-// Digest cumulatif (pas de delta) : à chaque envoi, l'e-mail reliste tout ce
-// qui est encore d'actualité — rupture/stock faible lus depuis l'onglet
-// "Stock", demandes "prévenez-moi" lues en entier depuis "Intérêts stock" (pas
-// de colonne "traité" pour filtrer, donc la liste reste complète tant que la
-// ligne n'est pas supprimée à la main). Aucun e-mail n'est envoyé si les trois
-// listes sont vides.
 function envoyerDigestQuotidien() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var stock = listerStock(ss);
-    // <= 0 et pas === 0 : une décrémentation automatique (voir
-    // decrementerStockCommande) peut faire passer une quantité sous zéro en cas
-    // de survente, et ça doit rester détecté comme une rupture.
     var epuises = stock.filter(function (s) { return s.qty <= 0; });
     var faibles = stock.filter(function (s) { return s.qty > 0 && s.qty <= SEUIL_STOCK_FAIBLE; });
     var interets = listerInteretsStock(ss);
 
     if (!epuises.length && !faibles.length && !interets.length) return;
 
-    // Titre souligné + un titre de section soutenu d'un filet du même
-    // longueur, pour aérer un digest qui reste par ailleurs en texte brut
-    // (pas de HTML pour ce mail, purement interne).
     var titre = 'TAROTLENS — DIGEST QUOTIDIEN DU '
         + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
     var lignes = [titre, '='.repeat(titre.length), ''];
@@ -953,8 +814,6 @@ function envoyerDigestQuotidien() {
     });
 }
 
-// Installe le déclencheur temporel (1x/jour, ~8h). Garde-fou anti-doublon :
-// si un déclencheur pour envoyerDigestQuotidien existe déjà, ne recrée rien.
 function installerAutomatisations() {
     var ui = SpreadsheetApp.getUi();
     var dejaInstalle = ScriptApp.getProjectTriggers().some(function (t) {
@@ -974,7 +833,6 @@ function installerAutomatisations() {
         + '\n\nRien n\'est envoyé les jours où tout va bien.');
 }
 
-/* ==================== Upload photos (Drive) ==================== */
 
 function obtenirDossierPhotos() {
     var dossiers = DriveApp.getFoldersByName(DOSSIER_PHOTOS);
@@ -994,12 +852,7 @@ function televerserPhoto(filename, mimeType, base64) {
     return 'https://lh3.googleusercontent.com/d/' + fichier.getId();
 }
 
-/* ==================== Dispatch API (action) ==================== */
 
-// Fenêtre glissante d'échecs sur adminLogin uniquement (pas sur les autres
-// actions admin*, pour qu'une clé devenue invalide en cours de session — ex.
-// rotation de clé dans un autre onglet — ne verrouille pas une reconnexion
-// légitime). Compteur en CacheService : expire tout seul, pas de verrou permanent.
 function tropDeTentativesLogin() {
     var n = Number(CacheService.getScriptCache().get('admin_login_echecs') || 0);
     return n >= LOGIN_MAX_TENTATIVES;
@@ -1081,14 +934,6 @@ function handleAdmin(action, p) {
     }
 }
 
-// Revérifie la disponibilité au moment où la commande arrive réellement côté
-// serveur, indépendamment de ce que le panier affichait au client (cache
-// périmé, onglet resté ouvert depuis avant un passage en rupture, requête
-// forgée à la main...). Même définition de "rupture" que le frontend
-// (getAvailability dans index.html) : suivi dans l'onglet "Stock" -> qty <= 0 ;
-// sinon -> flag inStock à faux dans l'onglet "Produits". Un id absent des deux
-// n'est pas bloqué (mêmes conventions qu'ailleurs : "absent = en stock").
-// Retourne les noms des articles indisponibles (liste vide = tout est bon).
 function articlesIndisponibles(ss, items) {
     var stockParId = {};
     listerStock(ss).forEach(function (s) { stockParId[s.id] = s.qty; });
@@ -1108,13 +953,10 @@ function articlesIndisponibles(ss, items) {
     return indisponibles;
 }
 
-/* ==================== doGet / doPost ==================== */
 
 function doGet(e) {
     var p = (e && e.parameter) ? e.parameter : {};
 
-    // Nouveau : seules les actions publiques "produits"/"textes" sont accessibles
-    // en GET. Les actions admin exigent un POST (la clé ne doit jamais transiter par l'URL).
     if (p.action) {
         var resultat = (p.action === 'produits') ? actionProduitsPublic()
             : (p.action === 'textes') ? actionTextesPublic()
@@ -1124,14 +966,12 @@ function doGet(e) {
             .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Chemin existant, inchangé : disponibilité du stock (ArcanaStock côté frontend).
     try {
         var ss = SpreadsheetApp.getActiveSpreadsheet();
         var stockSheet = findSheet(ss, 'Stock');
         var stock = {};
         if (stockSheet) {
             var rows = stockSheet.getDataRange().getValues();
-            // Ligne 0 = en-têtes (id, nom, quantité disponible) — on l'ignore.
             for (var i = 1; i < rows.length; i++) {
                 var id = rows[i][0];
                 var qty = rows[i][2];
@@ -1196,14 +1036,12 @@ function doPost(e) {
             .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Nouveau : toutes les actions "produits"/"admin*" (admin.html) passent par ici.
     if (data.action) {
         return ContentService
             .createTextOutput(JSON.stringify(handleAction(data)))
             .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Chemin existant, inchangé : commandes (panier.js) et inscriptions "prévenez-moi" (index.html).
     var lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
@@ -1235,9 +1073,6 @@ function doPost(e) {
             var itemsSummary = (data.items || [])
                 .map(function (it) { return it.name + ' x' + it.qty; })
                 .join(', ');
-            // Doublon technique des articles (id + qty), pour décrémenter le Stock de
-            // façon fiable au statut "Paiement validé" sans dépendre du nom affiché
-            // (qui varie en FR/EN) — voir decrementerStockCommande/definirStatutCommande.
             var itemsJson = JSON.stringify((data.items || []).map(function (it) {
                 return { id: it.id, qty: it.qty };
             }));

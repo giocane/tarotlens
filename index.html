@@ -19,7 +19,6 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════ NAV ═══════════════════════════════════ -->
 <header class="nav" id="nav">
     <div class="nav-inner">
         <button class="lang-toggle" id="langToggle" type="button"></button>
@@ -43,10 +42,8 @@
 
 <main>
 
-<!-- ═══════════════════════════════ HERO — bannières mises en avant (pilotées depuis admin.html, produit -> case "hero") ═══════════════════════════════ -->
 <div id="heroContainer"></div>
 
-<!-- ═══════════════════════════════════ LES DECKS ════════════════════════════════ -->
 <section class="products-section" id="decks">
     <div class="products-section-inner">
         <h2 class="section-title" data-i18n="title_decks">LES DECKS</h2>
@@ -54,7 +51,6 @@
     </div>
 </section>
 
-<!-- ═══════════════════════════════ LES ACCESSOIRES ══════════════════════════════ -->
 <section class="products-section" id="accessoires">
     <div class="products-section-inner">
         <h2 class="section-title" data-i18n="title_accessories">LES ACCESSOIRES</h2>
@@ -64,7 +60,6 @@
 
 </main>
 
-<!-- ═══════════════════════════════════ FOOTER ════════════════════════════════════ -->
 <footer class="footer">
     <div class="footer-inner">
         <div class="footer-holo">
@@ -85,7 +80,6 @@
     </div>
 </footer>
 
-<!-- MODALE PRODUIT -->
 <div class="modal-overlay" id="productModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-panel">
         <button class="modal-close" id="modalClose" data-i18n-attr="aria-label:modal_closeAria">&times;</button>
@@ -101,7 +95,6 @@
     </div>
 </div>
 
-<!-- MODALE "PRÉVENEZ-MOI" -->
 <div class="modal-overlay" id="stockModal" role="dialog" aria-modal="true" aria-labelledby="stockModalTitle">
     <div class="modal-panel stock-modal-panel">
         <button class="modal-close" id="stockModalClose" data-i18n-attr="aria-label:modal_closeAria">&times;</button>
@@ -113,7 +106,6 @@
     </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="i18n.js?v=3"></script>
@@ -121,14 +113,10 @@
 <script src="cart.js?v=3"></script>
 <script src="products.js?v=1"></script>
 <script>
-// Échappe le HTML injecté depuis le catalogue produits (nom, images...) avant
-// de l'insérer via innerHTML — ces valeurs viennent du Sheet "Produits",
-// éditable par plus de monde que les seuls détenteurs de la clé admin.
 function escapeHTML(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Menu burger
 const burger = document.getElementById('navBurger');
 const navLinks = document.getElementById('navLinks');
 burger.addEventListener('click', () => {
@@ -142,16 +130,11 @@ navLinks.querySelectorAll('a').forEach(a =>
     })
 );
 
-// Ombre nav au scroll
 const nav = document.getElementById('nav');
 window.addEventListener('scroll', () => {
     nav.style.boxShadow = window.scrollY > 8 ? '0 4px 20px rgba(0,0,0,.15)' : 'none';
 }, { passive: true });
 
-// Vidéos hero : ne se chargent (data-src -> src) et ne jouent qu'à l'entrée
-// dans le viewport, et se remettent en pause en sortant — jusqu'ici les 3
-// (jusqu'à 23 Mo chacune) partaient en autoplay dès le chargement de la
-// page, y compris celles hors écran.
 const heroVideoObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         const video = entry.target;
@@ -164,15 +147,10 @@ const heroVideoObserver = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.25 });
 
-// Révélation au scroll (voir plus bas pour les sections statiques ; le hero
-// est généré dynamiquement donc ses sections s'enregistrent depuis renderHero).
 const revealObserver = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); revealObserver.unobserve(e.target); } });
 }, { threshold: 0.12 });
 
-// Bannières hero : générées depuis les produits ayant la case "mise en avant
-// (hero)" cochée dans admin.html, dans l'ordre du catalogue (donc du Sheet).
-// Vidéo affichée = la 1ʳᵉ vidéo de la fiche produit, sinon sa photo de couverture.
 const HERO_MEDIA_VIDEO_RE = /\.(mp4|mov)$/i;
 
 function renderHero(products) {
@@ -206,7 +184,6 @@ function renderHero(products) {
     container.querySelectorAll('.hero-media video[data-src]').forEach(v => heroVideoObserver.observe(v));
 }
 
-// Add to cart
 const toast = document.getElementById('toast');
 let toastTimer;
 function addToCartById(id) {
@@ -224,7 +201,6 @@ function addToCartById(id) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-// Rupture de stock
 function notifyFormHTML(t) {
     return `
         <form class="notify-form">
@@ -266,24 +242,14 @@ function wireNotifyForm(container, product) {
     });
 }
 
-// Disponibilité d'un produit : priorité à la quantité live (onglet "Stock" du
-// Sheet, éditée à la main par le client) ; à défaut, on retombe sur le flag
-// statique `inStock` de data.js.
 function getAvailability(p) {
     const q = window.ArcanaStock.qty(p.id);
     if (q !== null) return { tracked: true, qty: q, out: q <= 0 };
     return { tracked: false, qty: null, out: p.inStock === false };
 }
 
-// Passe à true une fois que renderStockStates() a tourné au moins une fois
-// avec une réponse (même de secours) du catalogue/stock — voir openProductModal.
 let stockChecked = false;
 
-// Tant que ni le catalogue live ni le stock n'ont répondu, "Ajouter au panier"
-// reste désactivé (voir cardHTML) : mieux vaut un bref délai à l'affichage
-// qu'un client plus rapide que la mise à jour du stock qui commande un produit
-// entre-temps passé en rupture. Cette fonction lève cette désactivation une
-// fois la disponibilité réelle connue, ou confirme l'état "rupture".
 function renderStockStates() {
     const { t } = window.TarotLensI18n;
     document.querySelectorAll('.prod-card[data-id]').forEach(card => {
@@ -322,10 +288,6 @@ function renderStockStates() {
     });
     stockChecked = true;
 }
-// Grille produits : générée depuis window.PRODUCTS (data.js au premier rendu,
-// remplacé par le catalogue live dès que ArcanaProducts.load() résout). Les
-// deux sections ("decks"/"bundle" vs "accessory") suivent l'ordre du tableau,
-// lui-même piloté par l'ordre des lignes du Sheet côté admin.
 function renderProducts(products) {
     const { pick, t } = window.TarotLensI18n;
     const decksGrid = document.querySelector('#decks .products-grid');
@@ -366,7 +328,6 @@ window.ArcanaProducts.load().then(produits => {
     return window.ArcanaStock.load();
 }).finally(renderStockStates);
 
-// Modale "Prévenez-moi" (ouverte depuis le bouton de la carte produit)
 const stockModal = document.getElementById('stockModal');
 const stockModalTag = document.getElementById('stockModalTag');
 const stockModalTitle = document.getElementById('stockModalTitle');
@@ -392,7 +353,6 @@ window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && stockModal.classList.contains('show')) closeStockModal();
 });
 
-// Modale produit "En savoir +"
 const productModal = document.getElementById('productModal');
 const modalMedia = document.getElementById('modalMedia');
 const modalTag = document.getElementById('modalTag');
@@ -474,8 +434,6 @@ function openProductModal(id) {
     modalSpecs.textContent = specs.length ? specs.join(' — ') : t('modal_descTodo');
 
     if (!stockChecked) {
-        // Même principe que la grille : tant que la disponibilité réelle n'est
-        // pas confirmée, pas d'ajout au panier possible depuis la fiche produit.
         modalAddBtn.style.display = '';
         modalAddBtn.disabled = true;
         modalAddBtn.onclick = null;
@@ -512,8 +470,6 @@ window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight' && modalImages.length > 1) { modalImageIndex = (modalImageIndex + 1) % modalImages.length; renderModalSlide(); }
 });
 
-// Révélation au scroll (sections statiques ; le hero utilise revealObserver
-// directement dans renderHero, déclaré plus haut).
 document.querySelectorAll('.products-section').forEach(el => {
     el.classList.add('reveal');
     revealObserver.observe(el);
