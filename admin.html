@@ -310,6 +310,7 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <div class="admin-form-group"><label>Description (EN)</label><textarea class="admin-field" id="f_desc_en"></textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_precommande"> Précommande (le bouton de sa bannière hero affiche « Précommandez votre tarot » au lieu de « Achetez votre tarot »)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_hidden"> Ne pas afficher ce produit sur le site (reste disponible comme "produit lié" d'une extension)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_extension"> Extension (propose ce produit + un autre en pack, sur la fiche produit)</label>
@@ -892,7 +893,7 @@ function renderProduitsListe() {
                 </span>
                 <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
                 <div class="admin-prod-info">
-                    <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}${p.hidden ? ' 🚫' : ''}</strong>
+                    <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}${p.badge === 'new' ? ' 🆕' : ''}${p.hidden ? ' 🚫' : ''}</strong>
                     <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.hero ? ' — mis en avant (hero)' : ''}${p.hidden ? ' — masqué du site' : ''}${badgeRupture(p)}</span>
                 </div>
                 <label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
@@ -992,6 +993,7 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc').value = p.desc || '';
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
+    document.getElementById('f_nouveaute').checked = p.badge === 'new';
     document.getElementById('f_precommande').checked = p.preorder === true;
     document.getElementById('f_hidden').checked = p.hidden === true;
     document.getElementById('f_extension').checked = p.extension === true;
@@ -1086,6 +1088,7 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc = document.getElementById('f_desc').value;
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
+    p.badge = document.getElementById('f_nouveaute').checked ? 'new' : null;
     p.preorder = document.getElementById('f_precommande').checked;
     p.hidden = document.getElementById('f_hidden').checked;
     p.extension = document.getElementById('f_extension').checked;
@@ -1126,6 +1129,7 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
 const TEXTES_DEFAUTS_FR = {
     hero_cta: "ACHETEZ VOTRE TAROT",
     hero_cta_precommande: "PRÉCOMMANDEZ VOTRE TAROT",
+    badge_new: "Nouveau",
     extension_cta: "Ajouter le pack avec l'extension — {price} €",
     extension_includedWith: "Inclus avec {name}",
     nav_decks: "LES DECKS", nav_accessories: "ACCESSOIRES", nav_cartAria: "Panier", nav_homeAria: "TarotLens, accueil",
@@ -1167,6 +1171,7 @@ const TEXTES_DEFAUTS_FR = {
 const TEXTES_DEFAUTS_EN = {
     hero_cta: "BUY YOUR DECK",
     hero_cta_precommande: "PRE-ORDER YOUR DECK",
+    badge_new: "New",
     extension_cta: "Add the bundle with extension — €{price}",
     extension_includedWith: "Included with {name}",
     nav_decks: "THE DECKS", nav_accessories: "ACCESSORIES", nav_cartAria: "Cart", nav_homeAria: "TarotLens, home",
@@ -1221,6 +1226,7 @@ const TEXTES_GROUPES = [
     ]},
     { titre: 'Fiche produit', champs: [
         { k: 'btn_addToCart', l: 'Bouton Ajouter au panier' }, { k: 'btn_learnMore', l: 'Bouton En savoir plus' },
+        { k: 'badge_new', l: 'Pastille "Nouveauté" sur la vignette produit', hint: 'Affichée quand la case "Nouveauté" est cochée dans la fiche produit.' },
         { k: 'unit_cards', l: 'Unité « cartes »' },
         { k: 'toast_added', l: 'Message ajouté au panier', hint: 'Garde {name} — remplacé par le nom du produit' },
         { k: 'modal_closeAria', l: 'Fermer (accessibilité)' }, { k: 'modal_descTodo', l: 'Description manquante (texte par défaut)' },
