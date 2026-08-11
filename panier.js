@@ -26,22 +26,31 @@ function render() {
             ${items.map(it => {
                 const product = (window.PRODUCTS || []).find(p => p.id === it.id);
                 const name = product ? pick(product, 'name') : it.name;
-                const meta = product ? pick(product, 'tag') : it.meta;
+                const meta = it.included ? it.meta : (product ? pick(product, 'tag') : it.meta);
+                const isBundle = !!it.bundlePair;
+                const priceHTML = it.included
+                    ? t('cart_included')
+                    : (it.price > 0 ? (it.price * it.qty).toFixed(2).replace('.', ',') + ' €' : t('cart_preorder'));
+                const qtyHTML = isBundle
+                    ? `<span class="cart-qty-fixed">×${it.qty}</span>`
+                    : `<div class="qty">
+                            <button type="button" data-dec="${escapeHTML(it.key)}" aria-label="−">−</button>
+                            <input type="number" value="${it.qty}" min="1" max="20" data-qty="${escapeHTML(it.key)}" />
+                            <button type="button" data-inc="${escapeHTML(it.key)}" aria-label="+">+</button>
+                        </div>`;
                 return `
                 <div class="cart-line" data-key="${escapeHTML(it.key)}">
                     <div class="cart-thumb">${it.img ? `<img src="${escapeHTML(it.img)}" alt="${escapeHTML(name)}">` : escapeHTML(it.glyph)}</div>
                     <div>
                         <div class="cart-name">${escapeHTML(name)}</div>
                         ${meta ? `<div class="cart-meta">${escapeHTML(meta)}</div>` : ''}
-                        <button class="cart-remove" data-remove="${escapeHTML(it.key)}">${t('cart_remove')}</button>
+                        ${isBundle
+                            ? `<button class="cart-remove" data-remove-bundle="${escapeHTML(it.bundlePair)}">${t('cart_remove')}</button>`
+                            : `<button class="cart-remove" data-remove="${escapeHTML(it.key)}">${t('cart_remove')}</button>`}
                     </div>
                     <div class="cart-right">
-                        <div class="cart-line-price">${it.price > 0 ? (it.price * it.qty).toFixed(2).replace('.', ',') + ' €' : t('cart_preorder')}</div>
-                        <div class="qty">
-                            <button type="button" data-dec="${escapeHTML(it.key)}" aria-label="−">−</button>
-                            <input type="number" value="${it.qty}" min="1" max="20" data-qty="${escapeHTML(it.key)}" />
-                            <button type="button" data-inc="${escapeHTML(it.key)}" aria-label="+">+</button>
-                        </div>
+                        <div class="cart-line-price">${priceHTML}</div>
+                        ${qtyHTML}
                     </div>
                 </div>`;
             }).join('')}
@@ -62,6 +71,7 @@ function render() {
     root.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => { const k = b.dataset.dec; const it = items.find(x => x.key === k); window.ArcanaCart.setQty(k, it.qty - 1); render(); });
     root.querySelectorAll('[data-qty]').forEach(inp => inp.onchange = () => { window.ArcanaCart.setQty(inp.dataset.qty, +inp.value || 1); render(); });
     root.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { window.ArcanaCart.remove(b.dataset.remove); render(); });
+    root.querySelectorAll('[data-remove-bundle]').forEach(b => b.onclick = () => { window.ArcanaCart.removeBundle(b.dataset.removeBundle); render(); });
     document.getElementById('clear').onclick = () => { window.ArcanaCart.clear(); render(); };
     document.getElementById('checkout').onclick = () => renderOrderForm(items, subtotal);
 }
