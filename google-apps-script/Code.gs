@@ -42,7 +42,7 @@ var SEUIL_STOCK_FAIBLE = 2;
 
 var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
     'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
-    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero'];
+    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero', 'preorder'];
 
 var TEXTES_ENTETES = ['cle', 'fr', 'en'];
 
@@ -226,6 +226,7 @@ function produitDepuisLigne(o) {
         desc_en: texteOuNull(o.desc_en),
         inStock: !(o.inStock === false || String(o.inStock).toUpperCase() === 'FAUX' || String(o.inStock).toUpperCase() === 'FALSE'),
         hero: (o.hero === true || String(o.hero).toUpperCase() === 'VRAI' || String(o.hero).toUpperCase() === 'TRUE'),
+        preorder: (o.preorder === true || String(o.preorder).toUpperCase() === 'VRAI' || String(o.preorder).toUpperCase() === 'TRUE'),
     };
 }
 
@@ -266,6 +267,7 @@ function sauvegarderProduit(ss, p) {
         if (h === 'images') return (p.images || []).join('|');
         if (h === 'inStock') return p.inStock !== false;
         if (h === 'hero') return p.hero === true;
+        if (h === 'preorder') return p.preorder === true;
         var v = p[h];
         return (v === undefined || v === null) ? '' : v;
     });

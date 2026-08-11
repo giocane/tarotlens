@@ -310,6 +310,7 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <div class="admin-form-group"><label>Description (EN)</label><textarea class="admin-field" id="f_desc_en"></textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_precommande"> Précommande (le bouton de sa bannière hero affiche « Précommandez votre tarot » au lieu de « Achetez votre tarot »)</label>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -944,7 +945,7 @@ document.getElementById('f_format_select').addEventListener('change', (e) => {
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, preorder: false };
 }
 
 function ouvrirFormProduit(id) {
@@ -961,6 +962,7 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc').value = p.desc || '';
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
+    document.getElementById('f_precommande').checked = p.preorder === true;
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1047,6 +1049,7 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc = document.getElementById('f_desc').value;
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
+    p.preorder = document.getElementById('f_precommande').checked;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');
@@ -1077,6 +1080,7 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
 
 const TEXTES_DEFAUTS_FR = {
     hero_cta: "ACHETEZ VOTRE TAROT",
+    hero_cta_precommande: "PRÉCOMMANDEZ VOTRE TAROT",
     nav_decks: "LES DECKS", nav_accessories: "ACCESSOIRES", nav_cartAria: "Panier", nav_homeAria: "TarotLens, accueil",
     title_decks: "LES DECKS", title_accessories: "LES ACCESSOIRES",
     btn_addToCart: "AJOUTER AU PANIER", btn_learnMore: "EN SAVOIR +", unit_cards: "cartes",
@@ -1115,6 +1119,7 @@ const TEXTES_DEFAUTS_FR = {
 };
 const TEXTES_DEFAUTS_EN = {
     hero_cta: "BUY YOUR DECK",
+    hero_cta_precommande: "PRE-ORDER YOUR DECK",
     nav_decks: "THE DECKS", nav_accessories: "ACCESSORIES", nav_cartAria: "Cart", nav_homeAria: "TarotLens, home",
     title_decks: "THE DECKS", title_accessories: "THE ACCESSORIES",
     btn_addToCart: "ADD TO CART", btn_learnMore: "LEARN MORE", unit_cards: "cards",
@@ -1153,7 +1158,8 @@ const TEXTES_DEFAUTS_EN = {
 
 const TEXTES_GROUPES = [
     { titre: "Bannières d'accueil", champs: [
-        { k: 'hero_cta', l: 'Bouton « Précommander » (toutes les bannières)', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },
+        { k: 'hero_cta', l: 'Bouton « Achetez votre tarot » (produits sans précommande)', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },
+        { k: 'hero_cta_precommande', l: 'Bouton « Précommandez votre tarot »', hint: 'Utilisé à la place du précédent quand la case "Précommande" est cochée dans la fiche produit.' },
     ]},
     { titre: 'Navigation', champs: [
         { k: 'nav_decks', l: 'Lien menu — Decks' }, { k: 'nav_accessories', l: 'Lien menu — Accessoires' },
