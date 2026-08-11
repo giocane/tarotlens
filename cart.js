@@ -13,7 +13,7 @@ window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pK
         const key = item.key || ('p' + item.id);
         const found = c.find(x => x.key === key);
         if (found) found.qty += item.qty || 1;
-        else c.push({ key, id: item.id ?? null, name: item.name, price: item.price || 0, glyph: item.glyph || '✦', grad: item.grad || 'g-toomuch', img: item.img || null, meta: item.meta || '', qty: item.qty || 1 });
+        else c.push({ key, id: item.id ?? null, name: item.name, price: item.price || 0, glyph: item.glyph || '✦', grad: item.grad || 'g-toomuch', img: item.img || null, meta: item.meta || '', qty: item.qty || 1, bundlePair: item.bundlePair || null, included: item.included || false });
         save(c);
         return count();
     }
@@ -22,6 +22,7 @@ window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pK
         if (!it) return; it.qty = Math.max(1, qty); save(c);
     }
     function remove(key) { save(get().filter(x => x.key !== key)); }
+    function removeBundle(pairId) { save(get().filter(x => x.bundlePair !== pairId)); }
     function clear()     { save([]); }
 
     function updateBadges() {
@@ -37,7 +38,7 @@ window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pK
         updateBadges();
     }
 
-    window.ArcanaCart = { get, save, add, setQty, remove, clear, count, total, updateBadges };
+    window.ArcanaCart = { get, save, add, setQty, remove, removeBundle, clear, count, total, updateBadges };
     document.addEventListener('DOMContentLoaded', wireNav);
 })();
 

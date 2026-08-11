@@ -309,6 +309,13 @@ img { max-width: 100%; display: block; }
 }
 .modal-desc { font-size: 14px; line-height: 1.7; white-space: pre-line; }
 .modal-specs { font-size: 14px; line-height: 1.7; opacity: .85; }
+.modal-extension {
+    background: rgba(232, 78, 10, .1); border: 1px solid rgba(232, 78, 10, .35);
+    border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.modal-extension-desc { font-size: 13px; line-height: 1.6; white-space: pre-line; }
+.modal-extension-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.modal-extension-toggle input { width: 20px; height: 20px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
 
 @media (max-width: 600px) {
     .modal-panel { grid-template-columns: 1fr; }

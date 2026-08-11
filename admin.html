@@ -311,6 +311,7 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_precommande"> Précommande (le bouton de sa bannière hero affiche « Précommandez votre tarot » au lieu de « Achetez votre tarot »)</label>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_hidden"> Ne pas afficher ce produit sur le site (reste disponible comme "produit lié" d'une extension)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_extension"> Extension (propose ce produit + un autre en pack, sur la fiche produit)</label>
                 <div id="extensionEditeur" style="display:none;flex-direction:column;gap:10px;padding:12px;border:1px solid #ddd5c0;border-radius:8px">
                     <div class="admin-form-group"><label>Produit lié (l'extension)</label>
@@ -891,8 +892,8 @@ function renderProduitsListe() {
                 </span>
                 <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
                 <div class="admin-prod-info">
-                    <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}</strong>
-                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
+                    <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}${p.hidden ? ' 🚫' : ''}</strong>
+                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.hero ? ' — mis en avant (hero)' : ''}${p.hidden ? ' — masqué du site' : ''}${badgeRupture(p)}</span>
                 </div>
                 <label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
                     <input type="checkbox" data-hero-toggle="${p.id}" ${p.hero ? 'checked' : ''}> Hero
@@ -973,7 +974,7 @@ document.getElementById('f_extension').addEventListener('change', (e) => {
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, preorder: false,
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, preorder: false, hidden: false,
         extension: false, extensionProductId: null, extensionPrice: null, extensionDesc: '', extensionDesc_en: '' };
 }
 
@@ -992,6 +993,7 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
     document.getElementById('f_precommande').checked = p.preorder === true;
+    document.getElementById('f_hidden').checked = p.hidden === true;
     document.getElementById('f_extension').checked = p.extension === true;
     document.getElementById('extensionEditeur').style.display = p.extension === true ? 'flex' : 'none';
     peuplerSelectExtension(p.id, p.extensionProductId);
@@ -1085,13 +1087,14 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
     p.preorder = document.getElementById('f_precommande').checked;
+    p.hidden = document.getElementById('f_hidden').checked;
     p.extension = document.getElementById('f_extension').checked;
     const extSelect = document.getElementById('f_extensionProduit').value;
     p.extensionProductId = p.extension && extSelect ? Number(extSelect) : null;
     const extPrice = document.getElementById('f_extensionPrice').value;
     p.extensionPrice = p.extension && extPrice !== '' ? Number(extPrice) : null;
-    p.extensionDesc = document.getElementById('f_extensionDesc').value.trim();
-    p.extensionDesc_en = document.getElementById('f_extensionDesc_en').value.trim();
+    p.extensionDesc = p.extension ? document.getElementById('f_extensionDesc').value.trim() : '';
+    p.extensionDesc_en = p.extension ? document.getElementById('f_extensionDesc_en').value.trim() : '';
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');

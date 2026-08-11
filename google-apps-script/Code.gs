@@ -42,7 +42,8 @@ var SEUIL_STOCK_FAIBLE = 2;
 
 var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
     'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
-    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero', 'preorder'];
+    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero', 'preorder',
+    'extension', 'extensionProductId', 'extensionPrice', 'extensionDesc', 'extensionDesc_en', 'hidden'];
 
 var TEXTES_ENTETES = ['cle', 'fr', 'en'];
 
@@ -227,6 +228,12 @@ function produitDepuisLigne(o) {
         inStock: !(o.inStock === false || String(o.inStock).toUpperCase() === 'FAUX' || String(o.inStock).toUpperCase() === 'FALSE'),
         hero: (o.hero === true || String(o.hero).toUpperCase() === 'VRAI' || String(o.hero).toUpperCase() === 'TRUE'),
         preorder: (o.preorder === true || String(o.preorder).toUpperCase() === 'VRAI' || String(o.preorder).toUpperCase() === 'TRUE'),
+        extension: (o.extension === true || String(o.extension).toUpperCase() === 'VRAI' || String(o.extension).toUpperCase() === 'TRUE'),
+        extensionProductId: (o.extensionProductId === '' || o.extensionProductId === null || o.extensionProductId === undefined) ? null : Number(o.extensionProductId),
+        extensionPrice: (o.extensionPrice === '' || o.extensionPrice === null || o.extensionPrice === undefined) ? null : Number(o.extensionPrice),
+        extensionDesc: texteOuNull(o.extensionDesc),
+        extensionDesc_en: texteOuNull(o.extensionDesc_en),
+        hidden: (o.hidden === true || String(o.hidden).toUpperCase() === 'VRAI' || String(o.hidden).toUpperCase() === 'TRUE'),
     };
 }
 
@@ -268,6 +275,8 @@ function sauvegarderProduit(ss, p) {
         if (h === 'inStock') return p.inStock !== false;
         if (h === 'hero') return p.hero === true;
         if (h === 'preorder') return p.preorder === true;
+        if (h === 'extension') return p.extension === true;
+        if (h === 'hidden') return p.hidden === true;
         var v = p[h];
         return (v === undefined || v === null) ? '' : v;
     });
