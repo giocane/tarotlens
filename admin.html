@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=5" />
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         .admin-wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 100px; }
@@ -311,6 +311,21 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_precommande"> Précommande (le bouton de sa bannière hero affiche « Précommandez votre tarot » au lieu de « Achetez votre tarot »)</label>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_extension"> Extension (propose ce produit + un autre en pack, sur la fiche produit)</label>
+                <div id="extensionEditeur" style="display:none;flex-direction:column;gap:10px;padding:12px;border:1px solid #ddd5c0;border-radius:8px">
+                    <div class="admin-form-group"><label>Produit lié (l'extension)</label>
+                        <select class="admin-field" id="f_extensionProduit"></select>
+                    </div>
+                    <div class="admin-form-group"><label>Prix du pack (deck + extension, €)</label>
+                        <input class="admin-field" id="f_extensionPrice" type="number" min="0" step="0.01">
+                    </div>
+                    <div class="admin-form-group"><label>Descriptif de l'extension (FR)</label>
+                        <textarea class="admin-field" id="f_extensionDesc"></textarea>
+                    </div>
+                    <div class="admin-form-group"><label>Descriptif de l'extension (EN) — vide = identique au FR</label>
+                        <textarea class="admin-field" id="f_extensionDesc_en"></textarea>
+                    </div>
+                </div>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -942,10 +957,24 @@ document.getElementById('f_format_select').addEventListener('change', (e) => {
     formulaireModifie = true;
 });
 
+function peuplerSelectExtension(excludreId, selectionId) {
+    const select = document.getElementById('f_extensionProduit');
+    const autresProduits = produitsCache.filter(x => x.id !== excludreId);
+    select.innerHTML = '<option value="">— Choisir —</option>'
+        + autresProduits.map(x => `<option value="${x.id}">${escapeHTML(x.name)}</option>`).join('');
+    select.value = selectionId ? String(selectionId) : '';
+}
+
+document.getElementById('f_extension').addEventListener('change', (e) => {
+    document.getElementById('extensionEditeur').style.display = e.target.checked ? 'flex' : 'none';
+    formulaireModifie = true;
+});
+
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, preorder: false };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, preorder: false,
+        extension: false, extensionProductId: null, extensionPrice: null, extensionDesc: '', extensionDesc_en: '' };
 }
 
 function ouvrirFormProduit(id) {
@@ -963,6 +992,12 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
     document.getElementById('f_precommande').checked = p.preorder === true;
+    document.getElementById('f_extension').checked = p.extension === true;
+    document.getElementById('extensionEditeur').style.display = p.extension === true ? 'flex' : 'none';
+    peuplerSelectExtension(p.id, p.extensionProductId);
+    document.getElementById('f_extensionPrice').value = p.extensionPrice ?? '';
+    document.getElementById('f_extensionDesc').value = p.extensionDesc || '';
+    document.getElementById('f_extensionDesc_en').value = p.extensionDesc_en || '';
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1050,6 +1085,13 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
     p.preorder = document.getElementById('f_precommande').checked;
+    p.extension = document.getElementById('f_extension').checked;
+    const extSelect = document.getElementById('f_extensionProduit').value;
+    p.extensionProductId = p.extension && extSelect ? Number(extSelect) : null;
+    const extPrice = document.getElementById('f_extensionPrice').value;
+    p.extensionPrice = p.extension && extPrice !== '' ? Number(extPrice) : null;
+    p.extensionDesc = document.getElementById('f_extensionDesc').value.trim();
+    p.extensionDesc_en = document.getElementById('f_extensionDesc_en').value.trim();
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');
@@ -1081,6 +1123,8 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
 const TEXTES_DEFAUTS_FR = {
     hero_cta: "ACHETEZ VOTRE TAROT",
     hero_cta_precommande: "PRÉCOMMANDEZ VOTRE TAROT",
+    extension_cta: "Ajouter le pack avec l'extension — {price} €",
+    extension_includedWith: "Inclus avec {name}",
     nav_decks: "LES DECKS", nav_accessories: "ACCESSOIRES", nav_cartAria: "Panier", nav_homeAria: "TarotLens, accueil",
     title_decks: "LES DECKS", title_accessories: "LES ACCESSOIRES",
     btn_addToCart: "AJOUTER AU PANIER", btn_learnMore: "EN SAVOIR +", unit_cards: "cartes",
@@ -1092,7 +1136,7 @@ const TEXTES_DEFAUTS_FR = {
     stock_notifyError: "Une erreur est survenue, réessayez plus tard.", stock_lowBadge: "Plus que {n} en stock !",
     stock_available: "{n} disponible(s)",
     cart_title: "MON PANIER", cart_emptyTitle: "Votre panier est vide", cart_emptyText: "Découvrez nos decks et accessoires.",
-    cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande",
+    cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande", cart_included: "Inclus",
     cart_summaryTitle: "Récapitulatif", cart_subtotal: "Sous-total", cart_priceTBC: "Prix à confirmer",
     cart_totalItems: "Total articles", cart_checkout: "VALIDER LA COMMANDE", cart_clear: "Vider le panier",
     cart_thanksTitle: "Merci !", cart_thanksText: "Pré-commande enregistrée. Nous vous recontactons prochainement.",
@@ -1120,6 +1164,8 @@ const TEXTES_DEFAUTS_FR = {
 const TEXTES_DEFAUTS_EN = {
     hero_cta: "BUY YOUR DECK",
     hero_cta_precommande: "PRE-ORDER YOUR DECK",
+    extension_cta: "Add the bundle with extension — €{price}",
+    extension_includedWith: "Included with {name}",
     nav_decks: "THE DECKS", nav_accessories: "ACCESSORIES", nav_cartAria: "Cart", nav_homeAria: "TarotLens, home",
     title_decks: "THE DECKS", title_accessories: "THE ACCESSORIES",
     btn_addToCart: "ADD TO CART", btn_learnMore: "LEARN MORE", unit_cards: "cards",
@@ -1131,7 +1177,7 @@ const TEXTES_DEFAUTS_EN = {
     stock_notifyError: "Something went wrong, please try again later.", stock_lowBadge: "Only {n} left!",
     stock_available: "{n} available",
     cart_title: "MY CART", cart_emptyTitle: "Your cart is empty", cart_emptyText: "Discover our decks and accessories.",
-    cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order",
+    cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order", cart_included: "Included",
     cart_summaryTitle: "Summary", cart_subtotal: "Subtotal", cart_priceTBC: "Price to be confirmed",
     cart_totalItems: "Total items", cart_checkout: "CONFIRM ORDER", cart_clear: "Clear cart",
     cart_thanksTitle: "Thank you!", cart_thanksText: "Pre-order recorded. We'll be in touch with you soon.",
@@ -1160,6 +1206,10 @@ const TEXTES_GROUPES = [
     { titre: "Bannières d'accueil", champs: [
         { k: 'hero_cta', l: 'Bouton « Achetez votre tarot » (produits sans précommande)', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },
         { k: 'hero_cta_precommande', l: 'Bouton « Précommandez votre tarot »', hint: 'Utilisé à la place du précédent quand la case "Précommande" est cochée dans la fiche produit.' },
+    ]},
+    { titre: 'Pack extension (fiche produit)', champs: [
+        { k: 'extension_cta', l: 'Case à cocher du bloc extension', hint: 'Garde {price} — remplacé par le prix du pack défini dans la fiche produit' },
+        { k: 'extension_includedWith', l: 'Étiquette de l\'extension dans le panier', hint: 'Garde {name} — remplacé par le nom du deck' },
     ]},
     { titre: 'Navigation', champs: [
         { k: 'nav_decks', l: 'Lien menu — Decks' }, { k: 'nav_accessories', l: 'Lien menu — Accessoires' },
