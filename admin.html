@@ -290,7 +290,14 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <div class="admin-form-group"><label>Étiquette / tag (EN)</label><input class="admin-field" id="f_tag_en"></div>
                 <div class="admin-form-group"><label>Nombre de cartes</label><input class="admin-field" id="f_cards" type="number" min="0"></div>
                 <div class="admin-form-group"><label>Symbole (glyphe)</label><input class="admin-field" id="f_glyph" maxlength="4"></div>
-                <div class="admin-form-group"><label>Format (FR)</label><input class="admin-field" id="f_format"></div>
+                <div class="admin-form-group"><label>Format (FR)</label>
+                    <select class="admin-field" id="f_format_select">
+                        <option value="Standard 70×120mm">Standard (70×120 mm)</option>
+                        <option value="Poker 63×89mm">Poker (63×89 mm)</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                    <input class="admin-field" id="f_format_autre" placeholder="Format personnalisé" hidden style="margin-top:6px">
+                </div>
                 <div class="admin-form-group"><label>Format (EN)</label><input class="admin-field" id="f_format_en"></div>
                 <div class="admin-form-group"><label>Poids / finition (FR)</label><input class="admin-field" id="f_weight"></div>
                 <div class="admin-form-group"><label>Poids / finition (EN)</label><input class="admin-field" id="f_weight_en"></div>
@@ -910,7 +917,29 @@ let imagesEnEdition = [];
 let formulaireModifie = false;
 document.getElementById('produitForm').addEventListener('input', () => { formulaireModifie = true; });
 
-const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph'];
+const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph'];
+const FORMATS_PRESETS = ['Standard 70×120mm', 'Poker 63×89mm'];
+
+function appliquerFormatDansForm(format) {
+    const select = document.getElementById('f_format_select');
+    const autre = document.getElementById('f_format_autre');
+    if (FORMATS_PRESETS.includes(format)) {
+        select.value = format;
+        autre.hidden = true;
+        autre.value = '';
+    } else {
+        select.value = 'autre';
+        autre.hidden = false;
+        autre.value = format || '';
+    }
+}
+
+document.getElementById('f_format_select').addEventListener('change', (e) => {
+    const autre = document.getElementById('f_format_autre');
+    autre.hidden = e.target.value !== 'autre';
+    if (!autre.hidden) autre.focus();
+    formulaireModifie = true;
+});
 
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
@@ -925,6 +954,7 @@ function ouvrirFormProduit(id) {
     imagesEnEdition = [...(p.images || [])];
 
     CHAMPS_TEXTE.forEach(c => { document.getElementById('f_' + c).value = p[c] || ''; });
+    appliquerFormatDansForm(p.format || '');
     document.getElementById('f_cat').value = p.cat || 'deck';
     document.getElementById('f_cards').value = p.cards ?? '';
     document.getElementById('f_price').value = p.price ?? 0;
@@ -1009,6 +1039,8 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const p = { ...produitEnEdition };
     CHAMPS_TEXTE.forEach(c => { p[c] = document.getElementById('f_' + c).value.trim(); });
+    const formatSelect = document.getElementById('f_format_select').value;
+    p.format = formatSelect === 'autre' ? document.getElementById('f_format_autre').value.trim() : formatSelect;
     p.cat = document.getElementById('f_cat').value;
     p.cards = document.getElementById('f_cards').value === '' ? null : Number(document.getElementById('f_cards').value);
     p.price = Number(document.getElementById('f_price').value) || 0;
