@@ -370,7 +370,7 @@ function toast(msg, isError) {
 
 async function apiUneFois(action, params) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
         const res = await fetch(API_URL, {
             method: 'POST',
