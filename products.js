@@ -1,6 +1,6 @@
 window.ArcanaProducts = (function () {
     const CACHE_KEY = 'tarotlens_products_cache';
-    const TTL_MS = 30 * 1000;
+    const TTL_MS = 10 * 1000;
 
     function readCache() {
         try {

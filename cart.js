@@ -44,7 +44,7 @@ window.TAROTLENS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pK
 
 window.ArcanaStock = (function () {
     const CACHE_KEY = 'tarotlens_stock_cache';
-    const TTL_MS = 30 * 1000;
+    const TTL_MS = 10 * 1000;
     let data = null;
 
     function readCache() {

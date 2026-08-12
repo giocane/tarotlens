@@ -351,7 +351,7 @@ function actionProduitsPublic() {
     if (!produits.length) return { ok: false, error: 'Onglet "Produits" vide.' };
 
     var resultat = { ok: true, produits: produits };
-    cache.put('produits_v1', JSON.stringify(resultat), 60);
+    cache.put('produits_v1', JSON.stringify(resultat), 20);
     return resultat;
 }
 
