@@ -224,7 +224,7 @@
     applyStaticI18n();
     renderLangToggle();
 
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwJYKhBL0pKlUAAsc6fnodg0DmUOjcxSaNwGPH1wTBzv8N6l4EgMHU2QplZhC9MtOO8/exec';
+    const ENDPOINT = '/api';
     const TEXTES_CACHE_KEY = 'tarotlens_textes_cache';
     const TEXTES_CACHE_TTL_MS = 5 * 60 * 1000;
 
