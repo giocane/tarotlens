@@ -108,7 +108,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="i18n.js?v=7"></script>
+<script src="i18n.js?v=8"></script>
 <script src="data.js?v=2"></script>
 <script src="cart.js?v=6"></script>
 <script src="products.js?v=2"></script>
@@ -171,7 +171,7 @@ function renderHero(products) {
         <section class="hero-feature${i % 2 ? ' rev' : ''}">
             <div class="hero-copy">
                 <${titleTag} class="hero-title${i % 2 ? ' magenta' : ''}">${titleHTML}</${titleTag}>
-                <a href="#${p.cat === 'accessory' ? 'accessoires' : 'decks'}" class="btn btn-orange">${escapeHTML(t(p.preorder ? 'hero_cta_precommande' : 'hero_cta'))}</a>
+                <a href="#${p.cat === 'accessory' ? 'accessoires' : 'decks'}" class="btn btn-orange">${escapeHTML(t('hero_cta'))}</a>
             </div>
             <div class="hero-media">${mediaHTML}</div>
         </section>`;

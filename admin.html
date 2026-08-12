@@ -311,7 +311,6 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
-                <label class="admin-checkbox-row"><input type="checkbox" id="f_precommande"> Précommande (le bouton de sa bannière hero affiche « Précommandez votre tarot » au lieu de « Achetez votre tarot »)</label>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -973,7 +972,7 @@ document.getElementById('f_format_select').addEventListener('change', (e) => {
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, preorder: false };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false };
 }
 
 function ouvrirFormProduit(id) {
@@ -991,7 +990,6 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
     document.getElementById('f_nouveaute').checked = p.badge === 'new';
-    document.getElementById('f_precommande').checked = p.preorder === true;
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1079,7 +1077,6 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
     p.badge = document.getElementById('f_nouveaute').checked ? 'new' : null;
-    p.preorder = document.getElementById('f_precommande').checked;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');
@@ -1110,7 +1107,6 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
 
 const TEXTES_DEFAUTS_FR = {
     hero_cta: "ACHETEZ VOTRE TAROT",
-    hero_cta_precommande: "PRÉCOMMANDEZ VOTRE TAROT",
     badge_new: "Nouveau",
     nav_decks: "LES DECKS", nav_accessories: "ACCESSOIRES", nav_cartAria: "Panier", nav_homeAria: "TarotLens, accueil",
     title_decks: "LES DECKS", title_accessories: "LES ACCESSOIRES",
@@ -1123,7 +1119,7 @@ const TEXTES_DEFAUTS_FR = {
     stock_notifyError: "Une erreur est survenue, réessayez plus tard.", stock_lowBadge: "Plus que {n} en stock !",
     stock_available: "{n} disponible(s)",
     cart_title: "MON PANIER", cart_emptyTitle: "Votre panier est vide", cart_emptyText: "Découvrez nos decks et accessoires.",
-    cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande", cart_included: "Inclus",
+    cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande",
     cart_summaryTitle: "Récapitulatif", cart_subtotal: "Sous-total", cart_priceTBC: "Prix à confirmer",
     cart_totalItems: "Total articles", cart_checkout: "VALIDER LA COMMANDE", cart_clear: "Vider le panier",
     cart_thanksTitle: "Merci !", cart_thanksText: "Pré-commande enregistrée. Nous vous recontactons prochainement.",
@@ -1150,7 +1146,6 @@ const TEXTES_DEFAUTS_FR = {
 };
 const TEXTES_DEFAUTS_EN = {
     hero_cta: "BUY YOUR DECK",
-    hero_cta_precommande: "PRE-ORDER YOUR DECK",
     badge_new: "New",
     nav_decks: "THE DECKS", nav_accessories: "ACCESSORIES", nav_cartAria: "Cart", nav_homeAria: "TarotLens, home",
     title_decks: "THE DECKS", title_accessories: "THE ACCESSORIES",
@@ -1163,7 +1158,7 @@ const TEXTES_DEFAUTS_EN = {
     stock_notifyError: "Something went wrong, please try again later.", stock_lowBadge: "Only {n} left!",
     stock_available: "{n} available",
     cart_title: "MY CART", cart_emptyTitle: "Your cart is empty", cart_emptyText: "Discover our decks and accessories.",
-    cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order", cart_included: "Included",
+    cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order",
     cart_summaryTitle: "Summary", cart_subtotal: "Subtotal", cart_priceTBC: "Price to be confirmed",
     cart_totalItems: "Total items", cart_checkout: "CONFIRM ORDER", cart_clear: "Clear cart",
     cart_thanksTitle: "Thank you!", cart_thanksText: "Pre-order recorded. We'll be in touch with you soon.",
@@ -1190,8 +1185,7 @@ const TEXTES_DEFAUTS_EN = {
 
 const TEXTES_GROUPES = [
     { titre: "Bannières d'accueil", champs: [
-        { k: 'hero_cta', l: 'Bouton « Achetez votre tarot » (produits sans précommande)', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },
-        { k: 'hero_cta_precommande', l: 'Bouton « Précommandez votre tarot »', hint: 'Utilisé à la place du précédent quand la case "Précommande" est cochée dans la fiche produit.' },
+        { k: 'hero_cta', l: 'Bouton « Achetez votre tarot »', hint: 'Le titre de chaque bannière vient du nom du produit — voir la case "hero" dans sa fiche produit.' },
     ]},
     { titre: 'Navigation', champs: [
         { k: 'nav_decks', l: 'Lien menu — Decks' }, { k: 'nav_accessories', l: 'Lien menu — Accessoires' },
