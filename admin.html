@@ -384,7 +384,7 @@ function toast(msg, isError) {
     toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
 }
 
-async function api(action, params = {}) {
+async function apiUneFois(action, params) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
@@ -394,15 +394,22 @@ async function api(action, params = {}) {
             body: JSON.stringify({ action, ak: getCle(), ...params }),
             signal: controller.signal,
         });
-        return await res.json();
+        return { reseauOk: true, rep: await res.json() };
     } catch (err) {
         const message = err.name === 'AbortError'
             ? 'Le service met trop de temps à répondre. Réessayez dans un instant.'
             : 'Connexion au service impossible. Réessayez dans un instant.';
-        return { ok: false, error: message };
+        return { reseauOk: false, rep: { ok: false, error: message } };
     } finally {
         clearTimeout(timeout);
     }
+}
+
+async function api(action, params = {}) {
+    const premier = await apiUneFois(action, params);
+    if (premier.reseauOk) return premier.rep;
+    const second = await apiUneFois(action, params);
+    return second.rep;
 }
 
 
