@@ -172,14 +172,19 @@ async function adminListCommandes(db) {
 const STATUTS_COMMANDE = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié', 'Annulée'];
 const PROGRESSION_STATUTS_STOCK = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
 
-async function adminSetStatutCommande(db, id, statut, suivi) {
+async function adminSetStatutCommande(env, id, statut, suivi) {
+    const db = env.DB;
     if (STATUTS_COMMANDE.indexOf(statut) < 0) throw new Error(`Statut invalide : ${statut}`);
     if (statut === 'Expédié' && !String(suivi || '').trim()) throw new Error('Numéro de suivi requis pour le statut Expédié.');
     const commande = await db.prepare('SELECT * FROM commandes WHERE id = ?').bind(id).first();
     if (!commande) throw new Error(`Commande id ${id} introuvable.`);
 
-    await db.prepare('UPDATE commandes SET statut = ?, suivi = ? WHERE id = ?')
-        .bind(statut, statut === 'Expédié' ? String(suivi || '').trim() : commande.suivi, id).run();
+    const suiviFinal = statut === 'Expédié' ? String(suivi || '').trim() : commande.suivi;
+    await db.prepare('UPDATE commandes SET statut = ?, suivi = ? WHERE id = ?').bind(statut, suiviFinal, id).run();
+
+    if (statut !== 'Annulée') {
+        await envoyerMailStatutCommande(env, { name: commande.name, email: commande.email, lang: commande.lang }, statut, suiviFinal);
+    }
 
     const indexAtteint = PROGRESSION_STATUTS_STOCK.indexOf(statut);
     const indexSeuil = PROGRESSION_STATUTS_STOCK.indexOf('Paiement validé');
@@ -187,7 +192,7 @@ async function adminSetStatutCommande(db, id, statut, suivi) {
         await decrementerStockCommande(db, commande.items_json);
         await db.prepare('UPDATE commandes SET stock_decremented = 1 WHERE id = ?').bind(id).run();
     }
-    return { ...commande, statut, suivi: statut === 'Expédié' ? suivi : commande.suivi };
+    return { ...commande, statut, suivi: suiviFinal };
 }
 
 async function decrementerStockCommande(db, itemsJson) {
@@ -222,7 +227,7 @@ async function handleAdmin(action, p, env) {
         case 'adminListCommandes':
             return { ok: true, commandes: await adminListCommandes(db) };
         case 'adminSetStatutCommande':
-            await adminSetStatutCommande(db, Number(p.row), String(p.statut || ''), String(p.suivi || ''));
+            await adminSetStatutCommande(env, Number(p.row), String(p.statut || ''), String(p.suivi || ''));
             return { ok: true };
         case 'adminDeleteCommande':
             await db.prepare('DELETE FROM commandes WHERE id = ?').bind(Number(p.row)).run();
@@ -287,6 +292,182 @@ async function handleAction(data, env) {
     }
 }
 
+const MAIL_SITE_URL = 'https://tarotlens.boutique';
+
+async function envoyerEmail(env, { to, subject, html, text, replyTo }) {
+    if (!env.RESEND_API_KEY) return;
+    await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            from: 'TarotLens <no-reply@tarotlens.boutique>',
+            to: [to], subject, html, text,
+            reply_to: replyTo || undefined,
+        }),
+    });
+}
+
+function echapperHtmlMail(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function mailCorpsHtml(i18n, texte, name, suivi) {
+    let html = `<p style="margin:0 0 16px;font-size:16px;">${echapperHtmlMail(i18n.greeting)} ${echapperHtmlMail(name)},</p>`
+        + `<p style="margin:0 0 20px;font-size:15px;line-height:1.6;">${echapperHtmlMail(texte.message)}</p>`;
+    if (suivi) {
+        html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr><td style="background:#F5EDCC;border-radius:12px;padding:14px 18px;">`
+            + `<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8B2DB5;font-weight:700;margin:0 0 4px;">${echapperHtmlMail(texte.suiviLabel)}</div>`
+            + `<div style="font-size:18px;font-weight:700;color:#1A1614;">${echapperHtmlMail(suivi)}</div>`
+            + `</td></tr></table>`;
+    }
+    html += `<p style="margin:0;font-size:15px;line-height:1.6;">${echapperHtmlMail(i18n.signoff)}<br>${echapperHtmlMail(i18n.team)}</p>`;
+    return html;
+}
+
+function mailEnveloppeHtml(corpsHtml) {
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F5EDCC;">`
+        + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5EDCC;padding:32px 16px;font-family:'Poppins',Arial,sans-serif;">`
+        + `<tr><td align="center">`
+        + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border-radius:18px;overflow:hidden;">`
+        + `<tr><td style="background:#E84E0A;padding:28px 24px;text-align:center;">`
+        + `<span style="font-family:Impact,'Arial Black',sans-serif;font-size:30px;letter-spacing:4px;color:#FFFFFF;text-transform:uppercase;">TarotLens</span>`
+        + `</td></tr>`
+        + `<tr><td style="padding:32px 28px;color:#1A1614;">${corpsHtml}</td></tr>`
+        + `<tr><td style="background:#F5EDCC;padding:18px 28px;text-align:center;">`
+        + `<a href="${MAIL_SITE_URL}" style="font-size:12px;color:#8B2DB5;text-decoration:none;">${MAIL_SITE_URL.replace('https://', '')}</a>`
+        + `</td></tr>`
+        + `</table></td></tr></table></body></html>`;
+}
+
+const STATUTS_NOTIFIES = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
+
+const MAILS_STATUT_COMMANDE = {
+    'Commande reçue': {
+        fr: { subject: 'TarotLens — commande reçue', message: 'Nous avons bien reçu votre commande, merci ! Elle est en cours de traitement, nous vous tiendrons informé(e) de son avancement.' },
+        en: { subject: 'TarotLens — order received', message: "We've received your order, thank you! It's now being processed and we'll keep you posted on its progress." },
+    },
+    'Paiement validé': {
+        fr: { subject: 'TarotLens — paiement validé', message: 'Votre paiement a bien été validé. Votre commande va maintenant être préparée.' },
+        en: { subject: 'TarotLens — payment confirmed', message: 'Your payment has been confirmed. Your order will now be prepared.' },
+    },
+    'En préparation': {
+        fr: { subject: 'TarotLens — commande en préparation', message: 'Votre commande est en cours de préparation, elle sera bientôt expédiée.' },
+        en: { subject: 'TarotLens — order being prepared', message: 'Your order is now being prepared and will be shipped soon.' },
+    },
+    'Expédié': {
+        fr: { subject: 'TarotLens — commande expédiée', message: 'Votre commande a été expédiée !', suiviLabel: 'Numéro de suivi' },
+        en: { subject: 'TarotLens — order shipped', message: 'Your order has been shipped!', suiviLabel: 'Tracking number' },
+    },
+};
+
+const MAIL_I18N = {
+    fr: { greeting: 'Bonjour', signoff: 'À bientôt,', team: "L'équipe TarotLens" },
+    en: { greeting: 'Hi', signoff: 'See you soon,', team: 'The TarotLens team' },
+};
+
+async function envoyerMailStatutCommande(env, commande, statut, suivi) {
+    if (STATUTS_NOTIFIES.indexOf(statut) < 0) return;
+    if (!commande.email) return;
+    const tpl = MAILS_STATUT_COMMANDE[statut];
+    const lang = String(commande.lang || '').toLowerCase() === 'en' ? 'en' : 'fr';
+    const texte = tpl[lang];
+    const i18n = MAIL_I18N[lang];
+    const name = commande.name || '';
+
+    const bodyPlain = `${i18n.greeting} ${name},\n\n${texte.message}`
+        + (suivi ? `\n\n${texte.suiviLabel} : ${suivi}` : '')
+        + `\n\n${i18n.signoff}\n${i18n.team}`;
+
+    await envoyerEmail(env, {
+        to: commande.email,
+        subject: texte.subject,
+        text: bodyPlain,
+        html: mailEnveloppeHtml(mailCorpsHtml(i18n, texte, name, suivi)),
+        replyTo: env.ORDER_NOTIFY_EMAIL,
+    });
+}
+
+async function sendOrderEmail(env, data) {
+    const lines = (data.items || []).map(it => `- ${it.name} x${it.qty}${it.price ? ` (${(it.price * it.qty).toFixed(2)} €)` : ''}`).join('\n');
+    const body = `Nouvelle commande TarotLens\n\n`
+        + `Nom : ${data.name || ''}\n`
+        + `E-mail : ${data.email || ''}\n`
+        + `Téléphone : ${data.phone || ''}\n`
+        + `Adresse : ${data.address || ''}\n\n`
+        + `Articles :\n${lines}\n\n`
+        + `Sous-total : ${data.subtotal || ''} €\n`
+        + `Langue : ${data.lang || ''}\n`;
+
+    await envoyerEmail(env, {
+        to: env.ORDER_NOTIFY_EMAIL,
+        subject: `Nouvelle commande — ${data.name || 'client'}`,
+        text: body,
+        replyTo: data.email || undefined,
+    });
+}
+
+async function sendContactEmail(env, data) {
+    const body = `Nouveau message depuis le formulaire de contact TarotLens\n\n`
+        + `Nom : ${data.name || ''}\n`
+        + `E-mail : ${data.email || ''}\n`
+        + `Sujet : ${data.subject || ''}\n\n`
+        + `Message :\n${data.message || ''}\n`;
+
+    await envoyerEmail(env, {
+        to: env.ORDER_NOTIFY_EMAIL,
+        subject: `TarotLens — contact : ${data.subject || 'Message'}`,
+        text: body,
+        replyTo: data.email || undefined,
+    });
+}
+
+async function articlesIndisponibles(db, items) {
+    const { results: stockRows } = await db.prepare('SELECT id, qty FROM stock').all();
+    const stockParId = {};
+    stockRows.forEach(r => { stockParId[r.id] = r.qty; });
+    const { results: produitRows } = await db.prepare('SELECT id, inStock FROM produits').all();
+    const produitParId = {};
+    produitRows.forEach(r => { produitParId[r.id] = r; });
+
+    const indisponibles = [];
+    for (const it of (items || [])) {
+        const id = Number(it.id);
+        if (!id) continue;
+        const qtyStock = stockParId[id];
+        const out = typeof qtyStock === 'number' ? qtyStock <= 0 : !(produitParId[id] && produitParId[id].inStock);
+        if (out) indisponibles.push(it.name || `#${id}`);
+    }
+    return indisponibles;
+}
+
+async function handleOrderFlow(data, env) {
+    if (data.type === 'stock_interest') {
+        await env.DB.prepare('INSERT INTO interets_stock (date, email, product, lang) VALUES (?, ?, ?, ?)')
+            .bind(new Date().toISOString(), data.email || '', data.product || '', data.lang || '').run();
+        return { ok: true };
+    }
+
+    if (data.type === 'contact') {
+        await sendContactEmail(env, data);
+        return { ok: true };
+    }
+
+    const indisponibles = await articlesIndisponibles(env.DB, data.items || []);
+    if (indisponibles.length) return { ok: false, error: 'stock', items: indisponibles };
+
+    const itemsSummary = (data.items || []).map(it => `${it.name} x${it.qty}`).join(', ');
+    const itemsJson = JSON.stringify((data.items || []).map(it => ({ id: it.id, qty: it.qty })));
+    await env.DB.prepare(`INSERT INTO commandes (date, name, email, phone, address, items_summary, subtotal, lang, statut, suivi, items_json, stock_decremented)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Commande reçue', '', ?, 0)`)
+        .bind(new Date().toISOString(), data.name || '', data.email || '', data.phone || '', data.address || '',
+            itemsSummary, data.subtotal || '', data.lang || '', itemsJson).run();
+
+    await sendOrderEmail(env, data);
+    return { ok: true };
+}
+
 export async function onRequestPost({ request, env }) {
     let data;
     try {
@@ -296,5 +477,10 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (data.action) return jsonResponse(await handleAction(data, env));
-    return jsonResponse({ ok: false, error: 'Action manquante.' });
+
+    try {
+        return jsonResponse(await handleOrderFlow(data, env));
+    } catch (err) {
+        return jsonResponse({ ok: false, error: String(err.message || err) });
+    }
 }
