@@ -385,15 +385,23 @@ function toast(msg, isError) {
 }
 
 async function api(action, params = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
         const res = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action, ak: getCle(), ...params }),
+            signal: controller.signal,
         });
         return await res.json();
-    } catch {
-        return { ok: false, error: 'Connexion au service impossible. Réessayez dans un instant.' };
+    } catch (err) {
+        const message = err.name === 'AbortError'
+            ? 'Le service met trop de temps à répondre. Réessayez dans un instant.'
+            : 'Connexion au service impossible. Réessayez dans un instant.';
+        return { ok: false, error: message };
+    } finally {
+        clearTimeout(timeout);
     }
 }
 
@@ -449,8 +457,8 @@ function majBadgeCommandes(commandes) {
 
 async function chargerDashboard() {
     document.getElementById('dashboardStats').innerHTML = '<div class="admin-stat-card">Chargement…</div>';
-    const [repCommandes, repProduits, repStock] = await Promise.all([
-        api('adminListCommandes'), api('adminListProduits'), api('adminListStock'),
+    const [repCommandes, [repProduits, repStock]] = await Promise.all([
+        api('adminListCommandes'), obtenirProduitsEtStock(),
     ]);
     if (!repCommandes.ok) { document.getElementById('dashboardStats').innerHTML = `Erreur : ${escapeHTML(repCommandes.error)}`; return; }
 
@@ -716,8 +724,8 @@ async function chargerStock() {
     const elInterets = document.getElementById('interetsBody');
     el.innerHTML = '<tr><td colspan="3">Chargement…</td></tr>';
     elInterets.innerHTML = '<tr><td colspan="5">Chargement…</td></tr>';
-    const [repProduits, repStock, repInterets] = await Promise.all([
-        api('adminListProduits'), api('adminListStock'), api('adminListInterets'),
+    const [[repProduits, repStock], repInterets] = await Promise.all([
+        obtenirProduitsEtStock(), api('adminListInterets'),
     ]);
     if (!repProduits.ok) { el.innerHTML = `<tr><td colspan="3">Erreur : ${escapeHTML(repProduits.error)}</td></tr>`; return; }
     produitsCache = repProduits.produits;
@@ -858,10 +866,23 @@ document.getElementById('ouvrirEmailingBtn').addEventListener('click', () => {
 let produitsCache = [];
 let stockParIdCache = {};
 
-async function chargerProduits() {
+let produitsStockPromise = null;
+let produitsStockTs = 0;
+const PRODUITS_STOCK_FRESH_MS = 15000;
+
+function obtenirProduitsEtStock(force) {
+    if (!force && produitsStockPromise && Date.now() - produitsStockTs < PRODUITS_STOCK_FRESH_MS) {
+        return produitsStockPromise;
+    }
+    produitsStockTs = Date.now();
+    produitsStockPromise = Promise.all([api('adminListProduits'), api('adminListStock')]);
+    return produitsStockPromise;
+}
+
+async function chargerProduits(force) {
     const el = document.getElementById('produitsListe');
     el.innerHTML = 'Chargement…';
-    const [repProduits, repStock] = await Promise.all([api('adminListProduits'), api('adminListStock')]);
+    const [repProduits, repStock] = await obtenirProduitsEtStock(force);
     if (!repProduits.ok) { el.innerHTML = `Erreur : ${escapeHTML(repProduits.error)}`; return; }
     produitsCache = repProduits.produits;
     if (repStock.ok) { stockParIdCache = {}; repStock.stock.forEach(s => { stockParIdCache[s.id] = s.qty; }); }
@@ -908,14 +929,14 @@ function renderProduitsListe() {
     el.querySelectorAll('[data-edit-produit]').forEach(b => b.addEventListener('click', () => ouvrirFormProduit(+b.dataset.editProduit)));
     el.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click', async () => {
         const rep = await api('adminMoveProduit', { id: b.dataset.id, sens: b.dataset.move });
-        if (rep.ok) chargerProduits(); else toast(rep.error, true);
+        if (rep.ok) chargerProduits(true); else toast(rep.error, true);
     }));
     el.querySelectorAll('[data-duplicate-produit]').forEach(b => b.addEventListener('click', async () => {
         const p = produitsCache.find(x => x.id === +b.dataset.duplicateProduit);
         if (!p) return;
         const copie = { ...p, id: null, name: p.name + ' (copie)' };
         const rep = await api('adminSaveProduit', { produit: copie });
-        if (rep.ok) { toast('Produit dupliqué.'); chargerProduits(); } else { toast(rep.error, true); }
+        if (rep.ok) { toast('Produit dupliqué.'); chargerProduits(true); } else { toast(rep.error, true); }
     }));
     el.querySelectorAll('[data-hero-toggle]').forEach(cb => cb.addEventListener('change', async () => {
         const p = produitsCache.find(x => x.id === +cb.dataset.heroToggle);
@@ -923,7 +944,7 @@ function renderProduitsListe() {
         cb.disabled = true;
         const rep = await api('adminSaveProduit', { produit: { ...p, hero: cb.checked } });
         cb.disabled = false;
-        if (rep.ok) { toast(cb.checked ? 'Ajouté au hero.' : 'Retiré du hero.'); chargerProduits(); }
+        if (rep.ok) { toast(cb.checked ? 'Ajouté au hero.' : 'Retiré du hero.'); chargerProduits(true); }
         else { cb.checked = !cb.checked; toast(rep.error, true); }
     }));
 }
@@ -1107,7 +1128,7 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     if (rep.ok) {
         toast('Produit enregistré.');
         fermerFormProduit(true);
-        chargerProduits();
+        chargerProduits(true);
     } else {
         toast(rep.error, true);
     }
@@ -1120,7 +1141,7 @@ document.getElementById('supprimerProduitBtn').addEventListener('click', async (
     if (rep.ok) {
         toast('Produit supprimé.');
         fermerFormProduit(true);
-        chargerProduits();
+        chargerProduits(true);
     } else {
         toast(rep.error, true);
     }
