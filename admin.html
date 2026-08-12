@@ -390,11 +390,11 @@ async function apiUneFois(action, params) {
 }
 
 async function api(action, params = {}) {
-    const premier = await apiUneFois(action, params);
-    if (premier.reseauOk) return premier.rep;
-    await new Promise(r => setTimeout(r, 1500));
-    const second = await apiUneFois(action, params);
-    return second.rep;
+    for (let tentative = 1; tentative <= 3; tentative++) {
+        const resultat = await apiUneFois(action, params);
+        if (resultat.reseauOk || tentative === 3) return resultat.rep;
+        await new Promise(r => setTimeout(r, 1500));
+    }
 }
 
 
