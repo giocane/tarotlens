@@ -1,0 +1,11 @@
+name = "tarotlens-digest"
+main = "index.js"
+compatibility_date = "2026-08-12"
+
+[triggers]
+crons = ["0 8 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tarotlens"
+database_id = "097f5ebf-6149-4e80-83c7-89dc93a92ee8"
