@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://script.google.com" />
     <link rel="preconnect" href="https://script.googleusercontent.com" />
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
 
@@ -89,7 +89,6 @@
             <h3 class="modal-title" id="modalTitle"></h3>
             <p class="modal-desc" id="modalDesc"></p>
             <p class="modal-specs" id="modalSpecs"></p>
-            <div class="modal-extension" id="modalExtension" hidden></div>
             <button class="btn btn-magenta" id="modalAddBtn" data-i18n="btn_addToCart">AJOUTER AU PANIER</button>
             <div id="modalNotify"></div>
         </div>
@@ -109,9 +108,9 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="i18n.js?v=6"></script>
+<script src="i18n.js?v=7"></script>
 <script src="data.js?v=2"></script>
-<script src="cart.js?v=5"></script>
+<script src="cart.js?v=6"></script>
 <script src="products.js?v=2"></script>
 <script>
 function escapeHTML(s) {
@@ -158,7 +157,7 @@ function renderHero(products) {
     const container = document.getElementById('heroContainer');
     if (!container || !products) return;
     const { pick, t } = window.TarotLensI18n;
-    const featured = products.filter(p => p.hero && !p.hidden);
+    const featured = products.filter(p => p.hero);
 
     container.innerHTML = featured.map((p, i) => {
         const media = (p.images || []).find(src => HERO_MEDIA_VIDEO_RE.test(src)) || p.img;
@@ -197,22 +196,6 @@ function addToCartById(id) {
         b.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: 300 })
     );
     toast.textContent = t('toast_added').replace('{name}', displayName);
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
-}
-
-function addExtensionBundleToCart(p, ext) {
-    const { pick, t } = window.TarotLensI18n;
-    const deckName = pick(p, 'name');
-    const extName = pick(ext, 'name');
-    const pairId = 'bundle-' + p.id;
-    window.ArcanaCart.add({ key: 'bundle-deck-' + p.id, id: p.id, name: deckName, price: p.extensionPrice, glyph: p.glyph, grad: p.grad, img: p.img, meta: pick(p, 'tag'), bundlePair: pairId });
-    window.ArcanaCart.add({ key: 'bundle-ext-' + p.id, id: ext.id, name: extName, price: 0, glyph: ext.glyph, grad: ext.grad, img: ext.img, meta: t('extension_includedWith').replace('{name}', deckName), included: true, bundlePair: pairId });
-    document.querySelectorAll('.nav-badge').forEach(b =>
-        b.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: 300 })
-    );
-    toast.textContent = t('toast_added').replace('{name}', deckName + ' + ' + extName);
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
@@ -327,9 +310,8 @@ function renderProducts(products) {
             </div>
         </div>`;
 
-    const visibles = products.filter(p => !p.hidden);
-    decksGrid.innerHTML = visibles.filter(p => p.cat !== 'accessory').map(cardHTML).join('');
-    accessoiresGrid.innerHTML = visibles.filter(p => p.cat === 'accessory').map(cardHTML).join('');
+    decksGrid.innerHTML = products.filter(p => p.cat !== 'accessory').map(cardHTML).join('');
+    accessoiresGrid.innerHTML = products.filter(p => p.cat === 'accessory').map(cardHTML).join('');
 
     [decksGrid, accessoiresGrid].forEach(grid => {
         grid.querySelectorAll('.prod-card').forEach(card => {
@@ -378,7 +360,6 @@ const modalTag = document.getElementById('modalTag');
 const modalTitle = document.getElementById('modalTitle');
 const modalDesc = document.getElementById('modalDesc');
 const modalSpecs = document.getElementById('modalSpecs');
-const modalExtension = document.getElementById('modalExtension');
 const modalAddBtn = document.getElementById('modalAddBtn');
 const modalNotify = document.getElementById('modalNotify');
 const modalClose = document.getElementById('modalClose');
@@ -452,24 +433,6 @@ function openProductModal(id) {
         pick(p, 'delivery') || null,
     ].filter(Boolean);
     modalSpecs.textContent = specs.length ? specs.join(' — ') : t('modal_descTodo');
-
-    modalExtension.innerHTML = '';
-    modalExtension.hidden = true;
-    if (p.extension && p.extensionProductId && p.extensionPrice && stockChecked) {
-        const ext = window.PRODUCTS.find(x => x.id === p.extensionProductId);
-        if (ext && !getAvailability(ext).out) {
-            modalExtension.hidden = false;
-            modalExtension.innerHTML = `
-                <p class="modal-extension-desc">${escapeHTML(pick(p, 'extensionDesc') || '')}</p>
-                <label class="modal-extension-toggle">
-                    <input type="checkbox" id="modalExtensionCheck">
-                    ${escapeHTML(t('extension_cta').replace('{price}', p.extensionPrice))}
-                </label>`;
-            document.getElementById('modalExtensionCheck').addEventListener('change', (e) => {
-                if (e.target.checked) { addExtensionBundleToCart(p, ext); closeProductModal(); }
-            });
-        }
-    }
 
     if (!stockChecked) {
         modalAddBtn.style.display = '';
