@@ -392,6 +392,7 @@ async function apiUneFois(action, params) {
 async function api(action, params = {}) {
     const premier = await apiUneFois(action, params);
     if (premier.reseauOk) return premier.rep;
+    await new Promise(r => setTimeout(r, 1500));
     const second = await apiUneFois(action, params);
     return second.rep;
 }
@@ -448,9 +449,8 @@ function majBadgeCommandes(commandes) {
 
 async function chargerDashboard() {
     document.getElementById('dashboardStats').innerHTML = '<div class="admin-stat-card">Chargement…</div>';
-    const [repCommandes, [repProduits, repStock]] = await Promise.all([
-        api('adminListCommandes'), obtenirProduitsEtStock(),
-    ]);
+    const repCommandes = await api('adminListCommandes');
+    const [repProduits, repStock] = await obtenirProduitsEtStock();
     if (!repCommandes.ok) { document.getElementById('dashboardStats').innerHTML = `Erreur : ${escapeHTML(repCommandes.error)}`; return; }
 
     const commandes = repCommandes.commandes;
@@ -715,9 +715,8 @@ async function chargerStock() {
     const elInterets = document.getElementById('interetsBody');
     el.innerHTML = '<tr><td colspan="3">Chargement…</td></tr>';
     elInterets.innerHTML = '<tr><td colspan="5">Chargement…</td></tr>';
-    const [[repProduits, repStock], repInterets] = await Promise.all([
-        obtenirProduitsEtStock(), api('adminListInterets'),
-    ]);
+    const [repProduits, repStock] = await obtenirProduitsEtStock();
+    const repInterets = await api('adminListInterets');
     if (!repProduits.ok) { el.innerHTML = `<tr><td colspan="3">Erreur : ${escapeHTML(repProduits.error)}</td></tr>`; return; }
     produitsCache = repProduits.produits;
     if (repStock.ok) { stockParIdCache = {}; repStock.stock.forEach(s => { stockParIdCache[s.id] = s.qty; }); }
@@ -866,7 +865,7 @@ function obtenirProduitsEtStock(force) {
         return produitsStockPromise;
     }
     produitsStockTs = Date.now();
-    produitsStockPromise = Promise.all([api('adminListProduits'), api('adminListStock')]);
+    produitsStockPromise = (async () => [await api('adminListProduits'), await api('adminListStock')])();
     return produitsStockPromise;
 }
 
