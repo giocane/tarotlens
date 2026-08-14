@@ -459,11 +459,14 @@ async function chargerDashboard() {
     (repStock.ok ? repStock.stock : []).forEach(s => { stockParId[s.id] = s.qty; });
 
     const actives = commandes.filter(c => c.statut !== 'Annulée');
-    const ca = actives.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
+    const caTotal = actives.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
+    const payees = commandes.filter(c => ['Paiement validé', 'En préparation', 'Expédié'].includes(c.statut));
+    const caReel = payees.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
     const nouvelles = commandes.filter(c => c.statut === 'Commande reçue').length;
 
     document.getElementById('dashboardStats').innerHTML = `
-        <div class="admin-stat-card"><div class="admin-stat-value">${ca.toFixed(2)} €</div><div class="admin-stat-label">CA (hors annulées)</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${caTotal.toFixed(2)} €</div><div class="admin-stat-label">CA total (hors annulées)</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${caReel.toFixed(2)} €</div><div class="admin-stat-label">CA réel (paiement validé)</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${commandes.length}</div><div class="admin-stat-label">Commandes totales</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${nouvelles}</div><div class="admin-stat-label">À traiter</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${produits.length}</div><div class="admin-stat-label">Produits au catalogue</div></div>`;
