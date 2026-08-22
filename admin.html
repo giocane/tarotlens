@@ -35,6 +35,15 @@
         .admin-tab-badge { position: absolute; top: -6px; right: -6px; background: #c0392b; color: #fff; border-radius: 980px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 10px; line-height: 18px; text-align: center; font-weight: 700; }
         .admin-periode-btn { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 5px 14px; font-family: var(--font-body); font-weight: 700; font-size: 12px; cursor: pointer; }
         .admin-periode-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+
+        .admin-changelog-version { padding: 18px 0; border-bottom: 1px solid rgba(26,22,20,.08); }
+        .admin-changelog-version:first-child { padding-top: 0; }
+        .admin-changelog-version:last-child { border-bottom: 0; padding-bottom: 0; }
+        .admin-changelog-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+        .admin-changelog-badge { display: inline-block; background: var(--orange); color: #fff; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 980px; white-space: nowrap; }
+        .admin-changelog-titre { font-family: var(--font-display); font-size: 16px; color: var(--magenta); text-transform: uppercase; }
+        .admin-changelog-date { font-size: 13px; opacity: .6; margin-left: auto; }
+        .admin-changelog-version ul { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
         .admin-tab-panel { display: none; }
         .admin-tab-panel.active { display: block; }
         .admin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -142,6 +151,7 @@
             <button type="button" class="admin-tab-btn" data-tab="emailing">Emailing</button>
             <button type="button" class="admin-tab-btn" data-tab="produits">Produits</button>
             <button type="button" class="admin-tab-btn" data-tab="textes">Textes</button>
+            <button type="button" class="admin-tab-btn" data-tab="journal">Journal</button>
         </div>
 
         <div class="admin-tab-panel" id="tab-dashboard">
@@ -277,6 +287,12 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             <div class="admin-form-actions">
                 <span></span>
                 <button type="button" class="btn btn-orange" id="saveTextesBtn">Enregistrer les textes</button>
+            </div>
+        </div>
+
+        <div class="admin-tab-panel" id="tab-journal">
+            <div class="admin-alert-box">
+                <div id="journalMisesAJour"></div>
             </div>
         </div>
     </div>
@@ -448,6 +464,105 @@ function switchTab(name) {
     if (name === 'emailing') chargerEmailing();
     if (name === 'produits') chargerProduits();
     if (name === 'textes') chargerTextes();
+    if (name === 'journal') renderJournal();
+}
+
+const CHANGELOG = [
+    {
+        version: 'v3.1', date: '22/08/2026', titre: 'Suivi des ventes',
+        items: [
+            'Distinction entre CA total et CA réellement encaissé sur le tableau de bord',
+            'Quantité vendue par produit, avec filtre par période (tout / 7 jours / 30 jours / ce mois-ci)',
+        ],
+    },
+    {
+        version: 'v3.0', date: '12/08/2026', titre: 'Migration vers Cloudflare',
+        items: [
+            'Bascule complète du backend de Google Sheets vers Cloudflare (base de données, stockage des photos, envoi d\'e-mails)',
+            'Nouveau digest quotidien automatique (stock, intérêts clients)',
+        ],
+    },
+    {
+        version: 'v2.5', date: '12/08/2026', titre: 'Fiabilité admin',
+        items: [
+            'Mise à jour du catalogue plus rapide (cache raccourci)',
+            'Nouvelles tentatives automatiques en cas d\'échec réseau',
+            'Correction d\'un blocage sur l\'onglet Produits',
+        ],
+    },
+    {
+        version: 'v2.4', date: '11/08/2026', titre: 'Nouveaux produits & options admin',
+        items: [
+            'Ajout des vidéos hero pour Africa Horizon',
+            'Menu déroulant pour le format produit dans l\'admin',
+            'Badge "Nouveauté" affichable sur les vignettes produit',
+        ],
+    },
+    {
+        version: 'v2.3', date: '03/08/2026', titre: 'Bannières et catalogue en direct',
+        items: [
+            'Bannières d\'accueil pilotables produit par produit depuis l\'admin',
+            'Chargement du catalogue accéléré',
+            'Blocage du bouton "Ajouter au panier" si le stock n\'est plus confirmé',
+            'Revérification du stock côté serveur au moment de la commande',
+        ],
+    },
+    {
+        version: 'v2.2', date: '23/07/2026', titre: 'Emailing',
+        items: [
+            'Ajout d\'un module d\'emailing rapide dans le back-office',
+        ],
+    },
+    {
+        version: 'v2.1', date: '22/07/2026', titre: 'Fiabilisation admin & sécurité',
+        items: [
+            'Correction du tableau de bord (stock réel pris en compte)',
+            'Archivage des commandes expédiées/annulées',
+            'Nouveaux e-mails de statut de commande, mise en forme soignée',
+            'Correction d\'une faille de sécurité sur le site',
+            'Formulaire de contact opérationnel',
+            'Chargement des images/vidéos optimisé',
+            'Décrément automatique du stock au paiement',
+        ],
+    },
+    {
+        version: 'v2.0', date: '21/07/2026', titre: 'Back-office admin',
+        items: [
+            'Création du back-office (gestion des commandes)',
+            'Export des commandes en fichier Excel',
+            'Suivi de statut des commandes avec e-mails automatiques au client',
+            'Badge d\'alerte pour les commandes à traiter',
+        ],
+    },
+    {
+        version: 'v1.1', date: '05/07/2026', titre: 'Contenu & expérience boutique',
+        items: [
+            'Descriptifs produits complets, traduction FR/EN',
+            'Slider photo et vidéos produits',
+            'Formulaire de commande avec coordonnées client',
+            'Gestion des ruptures de stock avec formulaire "Prévenez-moi du retour"',
+        ],
+    },
+    {
+        version: 'v1.0', date: '03/07/2026', titre: 'Lancement du site',
+        items: [
+            'Mise en ligne du site vitrine et boutique (rebranding TarotLens)',
+            'Fiches produits avec visuels, modale "En savoir plus", prix et panier',
+            'Corrections d\'affichage mobile',
+        ],
+    },
+];
+
+function renderJournal() {
+    document.getElementById('journalMisesAJour').innerHTML = CHANGELOG.map(v => `
+        <div class="admin-changelog-version">
+            <div class="admin-changelog-head">
+                <span class="admin-changelog-badge">${escapeHTML(v.version)}</span>
+                <span class="admin-changelog-titre">${escapeHTML(v.titre)}</span>
+                <span class="admin-changelog-date">${escapeHTML(v.date)}</span>
+            </div>
+            <ul>${v.items.map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ul>
+        </div>`).join('');
 }
 
 function majBadgeCommandes(commandes) {
