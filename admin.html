@@ -33,6 +33,8 @@
         .admin-tab-btn { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 9px 20px; font-family: var(--font-body); font-weight: 700; font-size: 13px; letter-spacing: .5px; text-transform: uppercase; cursor: pointer; }
         .admin-tab-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
         .admin-tab-badge { position: absolute; top: -6px; right: -6px; background: #c0392b; color: #fff; border-radius: 980px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 10px; line-height: 18px; text-align: center; font-weight: 700; }
+        .admin-periode-btn { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 5px 14px; font-family: var(--font-body); font-weight: 700; font-size: 12px; cursor: pointer; }
+        .admin-periode-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
         .admin-tab-panel { display: none; }
         .admin-tab-panel.active { display: block; }
         .admin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -150,6 +152,12 @@
             </div>
             <div class="admin-alert-box">
                 <h3>Quantité vendue par produit</h3>
+                <div class="admin-filters" style="margin-bottom:12px">
+                    <button type="button" class="admin-periode-btn active" data-periode="all">Tout</button>
+                    <button type="button" class="admin-periode-btn" data-periode="7">7 derniers jours</button>
+                    <button type="button" class="admin-periode-btn" data-periode="30">30 derniers jours</button>
+                    <button type="button" class="admin-periode-btn" data-periode="month">Ce mois-ci</button>
+                </div>
                 <div id="dashboardVentes"></div>
             </div>
             <div class="admin-alert-box">
@@ -450,6 +458,54 @@ function majBadgeCommandes(commandes) {
 }
 
 
+let dashboardCommandesCache = [];
+let dashboardProduitsCache = [];
+let periodeVentes = 'all';
+
+function limiteDatePeriode(periode) {
+    const maintenant = new Date();
+    if (periode === '7') return new Date(maintenant.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (periode === '30') return new Date(maintenant.getTime() - 30 * 24 * 60 * 60 * 1000);
+    if (periode === 'month') return new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
+    return null;
+}
+
+const STATUTS_VENDU = ['Paiement validé', 'En préparation', 'Expédié'];
+
+function renderVentesParProduit() {
+    const limite = limiteDatePeriode(periodeVentes);
+    const commandesPeriode = dashboardCommandesCache.filter(c => {
+        if (!STATUTS_VENDU.includes(c.statut)) return false;
+        if (!limite) return true;
+        const d = new Date(c.date);
+        return !isNaN(d) && d >= limite;
+    });
+
+    const ventesParId = {};
+    commandesPeriode.forEach(c => {
+        let items;
+        try { items = JSON.parse(c.items_json || '[]'); } catch { items = []; }
+        items.forEach(it => {
+            if (!it || it.id == null) return;
+            ventesParId[it.id] = (ventesParId[it.id] || 0) + (Number(it.qty) || 0);
+        });
+    });
+    const produitsParId = {};
+    dashboardProduitsCache.forEach(p => { produitsParId[p.id] = p; });
+    const ventes = Object.keys(ventesParId)
+        .map(id => ({ name: (produitsParId[id] && produitsParId[id].name) || `Produit #${id}`, qty: ventesParId[id] }))
+        .sort((a, b) => b.qty - a.qty);
+    const elVentes = document.getElementById('dashboardVentes');
+    elVentes.innerHTML = ventes.length ? ventes.map(v => `
+        <div class="admin-alert-row"><span>${escapeHTML(v.name)}</span><span>${v.qty} vendu(s)</span></div>`).join('')
+        : '<p class="admin-alert-empty">Aucune vente sur cette période.</p>';
+}
+document.querySelectorAll('.admin-periode-btn').forEach(b => b.addEventListener('click', () => {
+    periodeVentes = b.dataset.periode;
+    document.querySelectorAll('.admin-periode-btn').forEach(x => x.classList.toggle('active', x === b));
+    renderVentesParProduit();
+}));
+
 async function chargerDashboard() {
     document.getElementById('dashboardStats').innerHTML = '<div class="admin-stat-card">Chargement…</div>';
     const repCommandes = await api('adminListCommandes');
@@ -488,25 +544,9 @@ async function chargerDashboard() {
         return `<div class="admin-alert-row"><span>${escapeHTML(p.name)}</span><span>${label}</span></div>`;
     }).join('') : '<p class="admin-alert-empty">Rien à signaler.</p>';
 
-    const STATUTS_VENDU = ['Paiement validé', 'En préparation', 'Expédié'];
-    const ventesParId = {};
-    commandes.filter(c => STATUTS_VENDU.includes(c.statut)).forEach(c => {
-        let items;
-        try { items = JSON.parse(c.items_json || '[]'); } catch { items = []; }
-        items.forEach(it => {
-            if (!it || it.id == null) return;
-            ventesParId[it.id] = (ventesParId[it.id] || 0) + (Number(it.qty) || 0);
-        });
-    });
-    const produitsParId = {};
-    produits.forEach(p => { produitsParId[p.id] = p; });
-    const ventes = Object.keys(ventesParId)
-        .map(id => ({ name: (produitsParId[id] && produitsParId[id].name) || `Produit #${id}`, qty: ventesParId[id] }))
-        .sort((a, b) => b.qty - a.qty);
-    const elVentes = document.getElementById('dashboardVentes');
-    elVentes.innerHTML = ventes.length ? ventes.map(v => `
-        <div class="admin-alert-row"><span>${escapeHTML(v.name)}</span><span>${v.qty} vendu(s)</span></div>`).join('')
-        : '<p class="admin-alert-empty">Aucune vente pour l’instant.</p>';
+    dashboardCommandesCache = commandes;
+    dashboardProduitsCache = produits;
+    renderVentesParProduit();
 
     const elCommandes = document.getElementById('dashboardCommandes');
     const recentes = commandes.slice(0, 5);
