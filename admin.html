@@ -149,6 +149,10 @@
                 <div id="dashboardStockAlert"></div>
             </div>
             <div class="admin-alert-box">
+                <h3>Quantité vendue par produit</h3>
+                <div id="dashboardVentes"></div>
+            </div>
+            <div class="admin-alert-box">
                 <h3>Dernières commandes</h3>
                 <div id="dashboardCommandes"></div>
             </div>
@@ -483,6 +487,26 @@ async function chargerDashboard() {
         const label = tracked ? `Plus que ${qty} en stock` : 'Marqué en rupture';
         return `<div class="admin-alert-row"><span>${escapeHTML(p.name)}</span><span>${label}</span></div>`;
     }).join('') : '<p class="admin-alert-empty">Rien à signaler.</p>';
+
+    const STATUTS_VENDU = ['Paiement validé', 'En préparation', 'Expédié'];
+    const ventesParId = {};
+    commandes.filter(c => STATUTS_VENDU.includes(c.statut)).forEach(c => {
+        let items;
+        try { items = JSON.parse(c.items_json || '[]'); } catch { items = []; }
+        items.forEach(it => {
+            if (!it || it.id == null) return;
+            ventesParId[it.id] = (ventesParId[it.id] || 0) + (Number(it.qty) || 0);
+        });
+    });
+    const produitsParId = {};
+    produits.forEach(p => { produitsParId[p.id] = p; });
+    const ventes = Object.keys(ventesParId)
+        .map(id => ({ name: (produitsParId[id] && produitsParId[id].name) || `Produit #${id}`, qty: ventesParId[id] }))
+        .sort((a, b) => b.qty - a.qty);
+    const elVentes = document.getElementById('dashboardVentes');
+    elVentes.innerHTML = ventes.length ? ventes.map(v => `
+        <div class="admin-alert-row"><span>${escapeHTML(v.name)}</span><span>${v.qty} vendu(s)</span></div>`).join('')
+        : '<p class="admin-alert-empty">Aucune vente pour l’instant.</p>';
 
     const elCommandes = document.getElementById('dashboardCommandes');
     const recentes = commandes.slice(0, 5);

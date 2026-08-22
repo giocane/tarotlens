@@ -160,7 +160,7 @@ function commandeFromRow(row) {
         row: row.id, date: row.date, name: row.name || '', email: row.email || '',
         phone: row.phone || '', address: row.address || '', items: row.items_summary || '',
         subtotal: row.subtotal || '', lang: row.lang || '', statut: row.statut,
-        suivi: row.suivi || '',
+        suivi: row.suivi || '', items_json: row.items_json || '[]',
     };
 }
 
