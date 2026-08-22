@@ -21,6 +21,8 @@
         .legal-title { font-family: var(--font-display); font-size: clamp(48px,7vw,80px); color: var(--orange); text-transform: uppercase; line-height: .9; margin-bottom: 48px; }
         .legal-section { padding: 32px 0; border-top: 1px solid rgba(26,22,20,.1); }
         .legal-section h2 { font-family: var(--font-display); font-size: 28px; color: var(--orange); text-transform: uppercase; margin-bottom: 14px; }
+        .legal-section h3 { font-family: var(--font-body); font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; margin: 20px 0 6px; }
+        .legal-section h3:first-of-type { margin-top: 0; }
         .legal-section p, .legal-section li { font-size: 15px; line-height: 1.8; margin-bottom: 10px; opacity: .88; }
         .legal-section ul { margin-left: 20px; }
         .legal-section a { color: var(--orange); }
@@ -54,8 +56,25 @@
 
         <section class="legal-section" id="mentions">
             <h2 data-i18n="legal_publisherTitle">Éditeur du site</h2>
-            <p><strong>TarotLens</strong> — <span data-i18n="legal_publisherText">à compléter avec vos informations réelles.</span></p>
+            <p data-i18n="legal_publisherIntro">Le site tarotlens.boutique est édité par :</p>
+            <ul>
+                <li data-i18n="legal_publisherName">Nom / raison sociale : à compléter</li>
+                <li data-i18n="legal_publisherStatus">Statut : entrepreneur individuel (auto-entrepreneur)</li>
+                <li data-i18n="legal_publisherSiret">SIRET : à compléter</li>
+                <li data-i18n="legal_publisherAddress">Adresse : à compléter</li>
+                <li data-i18n="legal_publisherDirector">Directeur de la publication : à compléter</li>
+            </ul>
             <p><span data-i18n="legal_contactPrefix">Contact : </span><a href="mailto:TarotLens129@gmail.com">TarotLens129@gmail.com</a></p>
+        </section>
+
+        <section class="legal-section" id="hebergement">
+            <h2 data-i18n="legal_hostTitle">Hébergement</h2>
+            <p data-i18n="legal_hostText">Le site est hébergé par Cloudflare, Inc. — 101 Townsend St, San Francisco, CA 94107, États-Unis.</p>
+        </section>
+
+        <section class="legal-section" id="propriete">
+            <h2 data-i18n="legal_ipTitle">Propriété intellectuelle</h2>
+            <p data-i18n="legal_ipText">L'ensemble des contenus du site (textes, visuels, illustrations de cartes, logo) est la propriété de TarotLens, sauf mention contraire, et ne peut être reproduit sans autorisation.</p>
         </section>
 
         <section class="legal-section" id="confidentialite">
@@ -69,9 +88,23 @@
         </section>
 
         <section class="legal-section" id="cgv">
-            <h2 data-i18n="legal_cgvTitle">Conditions de vente</h2>
-            <p data-i18n="legal_cgvText1">Les produits TarotLens sont en pré-commande. Toute commande implique l'acceptation des présentes CGV.</p>
-            <p><span data-i18n="legal_cgvText2">Les prix sont indiqués en euros TTC.</span> <em data-i18n="legal_cgvText3">À compléter selon vos conditions réelles.</em></p>
+            <h2 data-i18n="legal_cgvTitle">Conditions générales de vente</h2>
+            <p data-i18n="legal_cgvIntro">Toute commande passée sur tarotlens.boutique implique l'acceptation pleine et entière des présentes conditions générales de vente.</p>
+
+            <h3 data-i18n="legal_cgvProductsTitle">Produits &amp; prix</h3>
+            <p data-i18n="legal_cgvProductsText">Les produits TarotLens (jeux de tarot, lenormand et accessoires) sont vendus en pré-commande, dans la limite des stocks disponibles. Les prix sont indiqués en euros TTC.</p>
+
+            <h3 data-i18n="legal_cgvPaymentTitle">Paiement</h3>
+            <p data-i18n="legal_cgvPaymentText">Le règlement s'effectue par virement bancaire. Les coordonnées bancaires (RIB) sont communiquées par e-mail après validation de la commande. La commande est confirmée à réception du paiement.</p>
+
+            <h3 data-i18n="legal_cgvShippingTitle">Livraison</h3>
+            <p data-i18n="legal_cgvShippingText">Les commandes sont préparées et expédiées sous 24 à 72h après réception du paiement, principalement via Mondial Relay pour la France. Une expédition à l'international est possible.</p>
+
+            <h3 data-i18n="legal_cgvWithdrawalTitle">Droit de rétractation</h3>
+            <p><span data-i18n="legal_cgvWithdrawalText">Conformément à l'article L221-18 du Code de la consommation, vous disposez d'un délai de 14 jours à compter de la réception de votre commande pour exercer votre droit de rétractation, sans avoir à justifier de motif. Pour l'exercer, contactez-nous à </span><a href="mailto:TarotLens129@gmail.com">TarotLens129@gmail.com</a><span data-i18n="legal_cgvWithdrawalText2">. Les frais de retour sont à votre charge, sauf erreur de notre part.</span></p>
+
+            <h3 data-i18n="legal_cgvDisputeTitle">Réclamations et litiges</h3>
+            <p><span data-i18n="legal_cgvDisputeText">Pour toute question ou réclamation, contactez-nous à </span><a href="mailto:TarotLens129@gmail.com">TarotLens129@gmail.com</a><span data-i18n="legal_cgvDisputeText2">. À défaut de résolution amiable, les litiges relèvent des tribunaux français compétents.</span></p>
         </section>
     </div>
 </main>
@@ -94,7 +127,7 @@
     </div>
 </footer>
 
-<script src="i18n.js?v=11"></script>
+<script src="i18n.js?v=12"></script>
 <script src="cart.js?v=7"></script>
 <script>
 const burger = document.getElementById('navBurger');
