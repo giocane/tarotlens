@@ -12,7 +12,7 @@ mkdir dist
 cp index.html panier.html contact.html legal.html admin.html dist/
 cp cart.js data.js i18n.js panier.js products.js dist/
 cp styles.css dist/
-cp .htaccess robots.txt dist/
+cp .htaccess robots.txt sitemap.xml dist/
 cp favicon.svg favicon.ico favicon-32.png favicon-16.png apple-touch-icon.png dist/
 
 mkdir -p dist/images dist/videos
