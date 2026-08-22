@@ -55,6 +55,21 @@ function render() {
             <div class="sum-row total"><span>${t('cart_totalItems')}</span><span>${items.reduce((n,i) => n + i.qty, 0)}</span></div>
             <button class="btn btn-orange" id="checkout">${t('cart_checkout')}</button>
             <button class="btn btn-ghost sm" id="clear" style="width:100%;margin-top:10px;text-align:center">${t('cart_clear')}</button>
+
+            <div class="cart-trust">
+                <div class="cart-trust-item">
+                    <span class="icon">🏦</span>
+                    <div><strong>${t('cart_trustPaymentTitle')}</strong><span class="txt">${t('cart_trustPaymentText')}</span></div>
+                </div>
+                <div class="cart-trust-item">
+                    <span class="icon">📦</span>
+                    <div><strong>${t('cart_trustShipTitle')}</strong><span class="txt">${t('cart_trustShipText')}</span></div>
+                </div>
+                <div class="cart-trust-item">
+                    <span class="icon">💬</span>
+                    <div><strong>${t('cart_trustContactTitle')}</strong><span class="txt">${t('cart_trustContactText')}</span></div>
+                </div>
+            </div>
         </aside>
     </div>`;
 
@@ -70,6 +85,7 @@ function renderOrderForm(items, subtotal) {
     root.innerHTML = `
     <div class="cart-order">
         <h2 class="cart-empty-title" style="text-align:left">${t('cart_orderTitle')}</h2>
+        <p class="cart-order-note">${t('cart_orderNote')}</p>
         <form class="contact-form" id="orderForm">
             <div class="form-group">
                 <label for="ordName">${t('cart_orderName')}</label>
