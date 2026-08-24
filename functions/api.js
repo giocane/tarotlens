@@ -226,6 +226,13 @@ async function handleAdmin(action, p, env) {
             return { ok: true };
         case 'adminUploadPhoto':
             return { ok: true, url: await adminUploadPhoto(env.PHOTOS, p.filename, p.mimeType, p.data) };
+        case 'adminListPhotos': {
+            const { objects } = await env.PHOTOS.list();
+            return { ok: true, photos: objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded })) };
+        }
+        case 'adminDeletePhoto':
+            await env.PHOTOS.delete(String(p.key || ''));
+            return { ok: true };
         case 'adminListCommandes':
             return { ok: true, commandes: await adminListCommandes(db) };
         case 'adminSetStatutCommande':
