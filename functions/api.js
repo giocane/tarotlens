@@ -148,7 +148,9 @@ async function adminUploadPhoto(bucket, filename, mimeType, base64) {
     if (!/^image\//.test(String(mimeType || ''))) {
         throw new Error('Seules les images sont acceptées ici (vidéos : coller une URL/chemin dans le champ dédié).');
     }
-    const octets = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const binaire = atob(base64);
+    const octets = new Uint8Array(binaire.length);
+    for (let i = 0; i < binaire.length; i++) octets[i] = binaire.charCodeAt(i);
     if (octets.length > 8 * 1024 * 1024) throw new Error('Image trop lourde (8 Mo max).');
     const key = `${crypto.randomUUID()}-${(filename || 'photo').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     await bucket.put(key, octets, { httpMetadata: { contentType: mimeType } });
