@@ -652,7 +652,8 @@ async function chargerDashboard() {
 
     const actives = commandes.filter(c => c.statut !== 'Annulée');
     const caTotal = actives.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
-    const payees = commandes.filter(c => c.statut === 'Paiement validé');
+    const STATUTS_ENCAISSES = ['Paiement validé', 'En préparation', 'Expédié'];
+    const payees = commandes.filter(c => c.paye || STATUTS_ENCAISSES.includes(c.statut));
     const caReel = payees.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
     const nouvelles = commandes.filter(c => c.statut === 'Commande reçue').length;
 
