@@ -334,7 +334,7 @@ function renderProducts(products) {
             </div>
             <div class="prod-card-media">
                 ${p.badge === 'new' ? `<span class="prod-card-badge-new">${escapeHTML(t('badge_new'))}</span>` : ''}
-                ${p.img ? `<img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">` : `<span class="prod-card-media-glyph">${escapeHTML(p.glyph || '')}</span>`}
+                ${p.img && !/\.(mp4|mov)$/i.test(p.img) ? `<img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">` : `<span class="prod-card-media-glyph">${escapeHTML(p.glyph || '')}</span>`}
             </div>
             <div class="prod-card-actions">
                 <button type="button" class="btn btn-magenta sm" data-action="add" disabled>${t('btn_addToCart')}</button>
