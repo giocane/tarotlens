@@ -289,6 +289,15 @@ async function handleAdmin(action, p, env) {
             }
             return { ok: true };
         }
+        case 'adminTestEmail': {
+            if (!env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY absente' };
+            const res = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from: 'TarotLens <no-reply@tarotlens.boutique>', to: [p.to], subject: 'Test diagnostic TarotLens', text: 'Test.' }),
+            });
+            return { ok: res.ok, status: res.status, body: await res.text() };
+        }
         default:
             return { ok: false, error: `Action admin inconnue : ${action}` };
     }
