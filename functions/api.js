@@ -328,8 +328,8 @@ function uint8ToBase64(bytes) {
 }
 
 async function envoyerEmail(env, { to, subject, html, text, replyTo, attachments }) {
-    if (!env.RESEND_API_KEY) return;
-    await fetch('https://api.resend.com/emails', {
+    if (!env.RESEND_API_KEY) { console.error('envoyerEmail: RESEND_API_KEY manquante'); return; }
+    const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -341,6 +341,7 @@ async function envoyerEmail(env, { to, subject, html, text, replyTo, attachments
                 : undefined,
         }),
     });
+    if (!res.ok) console.error('envoyerEmail: échec Resend', res.status, await res.text());
 }
 
 function echapperHtmlMail(s) {
