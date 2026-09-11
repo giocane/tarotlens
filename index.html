@@ -268,6 +268,7 @@ function wireNotifyForm(container, product) {
 }
 
 function getAvailability(p) {
+    if (p.comingSoon) return { tracked: false, qty: null, out: true };
     const q = window.ArcanaStock.qty(p.id);
     if (q !== null) return { tracked: true, qty: q, out: q <= 0 };
     return { tracked: false, qty: null, out: p.inStock === false };
@@ -289,12 +290,12 @@ function renderStockStates() {
         }
 
         if (avail.out) {
-            card.classList.add('out-of-stock');
+            if (!p.comingSoon) card.classList.add('out-of-stock');
             const addBtn = actions.querySelector('.btn-magenta');
 
             const badge = document.createElement('span');
             badge.className = 'stock-badge';
-            badge.textContent = t('stock_outOfStock');
+            badge.textContent = t(p.comingSoon ? 'stock_comingSoon' : 'stock_outOfStock');
             actions.before(badge);
 
             const notifyBtn = document.createElement('button');
@@ -320,14 +321,14 @@ function renderProducts(products) {
     if (!decksGrid || !accessoiresGrid || !products) return;
 
     const cardHTML = p => `
-        <div class="prod-card" data-id="${p.id}">
+        <div class="prod-card${p.comingSoon ? ' coming-soon' : ''}" data-id="${p.id}">
             <div class="prod-card-head">
                 <p class="prod-card-name">${escapeHTML(pick(p, 'name'))}</p>
                 <span class="prod-card-price">${p.price} €</span>
             </div>
             <div class="prod-card-media">
                 ${p.badge === 'new' ? `<span class="prod-card-badge-new">${escapeHTML(t('badge_new'))}</span>` : ''}
-                <img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">
+                ${p.img ? `<img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">` : escapeHTML(p.glyph || '')}
             </div>
             <div class="prod-card-actions">
                 <button type="button" class="btn btn-magenta sm" data-action="add" disabled>${t('btn_addToCart')}</button>
@@ -404,6 +405,7 @@ function buildModalMedia(p, displayName) {
     const images = (p.images && p.images.length ? p.images : (p.img ? [p.img] : []));
     modalImages = images;
     modalImageIndex = 0;
+    modalMedia.classList.toggle('coming-soon', !!p.comingSoon);
 
     if (!images.length) {
         modalMedia.innerHTML = p.glyph;
@@ -468,7 +470,7 @@ function openProductModal(id) {
         const avail = getAvailability(p);
         if (avail.out) {
             modalAddBtn.style.display = 'none';
-            modalNotify.innerHTML = `<span class="stock-badge">${t('stock_outOfStock')}</span>` + notifyFormHTML(t);
+            modalNotify.innerHTML = `<span class="stock-badge">${t(p.comingSoon ? 'stock_comingSoon' : 'stock_outOfStock')}</span>` + notifyFormHTML(t);
             wireNotifyForm(modalNotify, p);
         } else {
             modalAddBtn.style.display = '';

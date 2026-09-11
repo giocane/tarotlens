@@ -339,6 +339,7 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_comingSoon"> Bientôt disponible (produit pas encore lancé — visuel flouté automatiquement, ajout au panier désactivé, formulaire "prévenez-moi" affiché à la place)</label>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -1079,6 +1080,7 @@ async function chargerProduits(force) {
 }
 
 function badgeRupture(p) {
+    if (p.comingSoon) return ' — bientôt disponible';
     const qty = stockParIdCache[p.id];
     if (typeof qty === 'number') return qty <= 0 ? ' — rupture (stock: 0)' : '';
     return p.inStock === false ? ' — marqué en rupture' : '';
@@ -1172,7 +1174,7 @@ document.getElementById('f_format_select').addEventListener('change', (e) => {
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, comingSoon: false };
 }
 
 function ouvrirFormProduit(id) {
@@ -1190,6 +1192,7 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_desc_en').value = p.desc_en || '';
     document.getElementById('f_inStock').checked = p.inStock !== false;
     document.getElementById('f_nouveaute').checked = p.badge === 'new';
+    document.getElementById('f_comingSoon').checked = p.comingSoon === true;
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1277,6 +1280,7 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.desc_en = document.getElementById('f_desc_en').value;
     p.inStock = document.getElementById('f_inStock').checked;
     p.badge = document.getElementById('f_nouveaute').checked ? 'new' : null;
+    p.comingSoon = document.getElementById('f_comingSoon').checked;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const btn = e.target.querySelector('button[type=submit]');

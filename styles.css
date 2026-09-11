@@ -219,6 +219,7 @@ img { max-width: 100%; display: block; }
 .prod-card-actions .btn { flex: 1; text-align: center; }
 
 .prod-card.out-of-stock .prod-card-media { filter: grayscale(70%); opacity: .55; }
+.prod-card.coming-soon .prod-card-media { filter: blur(7px); }
 .stock-badge {
     display: inline-block; align-self: flex-start; text-align: center;
     background: var(--ink); color: var(--cream);
@@ -273,6 +274,8 @@ img { max-width: 100%; display: block; }
 .modal-media video {
     width: 100%; height: 100%; object-fit: cover;
 }
+.modal-media.coming-soon img,
+.modal-media.coming-soon video { filter: blur(10px); }
 .modal-slide {
     position: absolute; inset: 0;
     opacity: 0; transition: opacity .25s ease;

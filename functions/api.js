@@ -30,6 +30,7 @@ function produitFromRow(row) {
         desc_en: row.desc_en || null,
         inStock: !!row.inStock,
         hero: !!row.hero,
+        comingSoon: !!row.comingSoon,
     };
 }
 
@@ -105,6 +106,7 @@ function produitVersLigne(p) {
         images: (p.images || []).join('|'),
         inStock: p.inStock !== false ? 1 : 0,
         hero: p.hero === true ? 1 : 0,
+        comingSoon: p.comingSoon === true ? 1 : 0,
     };
 }
 
@@ -113,19 +115,19 @@ async function adminSaveProduit(db, p) {
     if (p.id) {
         await db.prepare(`UPDATE produits SET cat=?, name=?, name_en=?, tag=?, tag_en=?, cards=?, format=?, format_en=?,
             weight=?, weight_en=?, delivery=?, delivery_en=?, price=?, badge=?, glyph=?, grad=?, desc=?, desc_en=?,
-            images=?, inStock=?, hero=? WHERE id=?`)
+            images=?, inStock=?, hero=?, comingSoon=? WHERE id=?`)
             .bind(l.cat, l.name, l.name_en, l.tag, l.tag_en, l.cards, l.format, l.format_en, l.weight, l.weight_en,
-                l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.images, l.inStock, l.hero, p.id)
+                l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.images, l.inStock, l.hero, l.comingSoon, p.id)
             .run();
         const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(p.id).first();
         return produitFromRow(row);
     }
     const maxRow = await db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM produits WHERE cat = ?').bind(l.cat).first();
     const { meta } = await db.prepare(`INSERT INTO produits (cat, name, name_en, tag, tag_en, cards, format, format_en,
-            weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, images, inStock, hero, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, images, inStock, hero, comingSoon, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(l.cat, l.name, l.name_en, l.tag, l.tag_en, l.cards, l.format, l.format_en, l.weight, l.weight_en,
-            l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.images, l.inStock, l.hero, (maxRow.m || 0) + 1)
+            l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.images, l.inStock, l.hero, l.comingSoon, (maxRow.m || 0) + 1)
         .run();
     const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(meta.last_row_id).first();
     return produitFromRow(row);
@@ -430,7 +432,7 @@ async function articlesIndisponibles(db, items) {
     const { results: stockRows } = await db.prepare('SELECT id, qty FROM stock').all();
     const stockParId = {};
     stockRows.forEach(r => { stockParId[r.id] = r.qty; });
-    const { results: produitRows } = await db.prepare('SELECT id, inStock FROM produits').all();
+    const { results: produitRows } = await db.prepare('SELECT id, inStock, comingSoon FROM produits').all();
     const produitParId = {};
     produitRows.forEach(r => { produitParId[r.id] = r; });
 
@@ -439,7 +441,8 @@ async function articlesIndisponibles(db, items) {
         const id = Number(it.id);
         if (!id) continue;
         const qtyStock = stockParId[id];
-        const out = typeof qtyStock === 'number' ? qtyStock <= 0 : !(produitParId[id] && produitParId[id].inStock);
+        const out = (produitParId[id] && produitParId[id].comingSoon)
+            || (typeof qtyStock === 'number' ? qtyStock <= 0 : !(produitParId[id] && produitParId[id].inStock));
         if (out) indisponibles.push(it.name || `#${id}`);
     }
     return indisponibles;
