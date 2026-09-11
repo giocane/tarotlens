@@ -319,7 +319,13 @@ img { max-width: 100%; display: block; }
     color: var(--orange);
 }
 .modal-desc { font-size: 14px; line-height: 1.7; white-space: pre-line; }
-.modal-specs { font-size: 14px; line-height: 1.7; opacity: .85; }
+.modal-specs {
+    font-size: 13px; line-height: 1.7; white-space: pre-line;
+    background: rgba(139,45,181,.08);
+    border-left: 3px solid var(--purple);
+    border-radius: 10px;
+    padding: 12px 16px;
+}
 
 @media (max-width: 600px) {
     .modal-panel { grid-template-columns: 1fr; }
