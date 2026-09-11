@@ -79,6 +79,14 @@
         .admin-form-group { display: flex; flex-direction: column; gap: 5px; }
         .admin-form-group label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; opacity: .7; }
         .admin-form-group textarea.admin-field { min-height: 90px; resize: vertical; font-family: inherit; }
+        .desc-toolbar { display: flex; gap: 6px; margin-bottom: 4px; }
+        .desc-toolbar button {
+            border: 1px solid rgba(26,22,20,.2); background: transparent; border-radius: 6px;
+            width: 28px; height: 26px; font-size: 13px; cursor: pointer; color: inherit;
+        }
+        .desc-toolbar button:hover { background: rgba(26,22,20,.08); }
+        .desc-toolbar button:nth-child(1) { font-weight: 700; }
+        .desc-toolbar button:nth-child(2) { font-style: italic; }
         .admin-section-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin: 22px 0 10px; color: var(--magenta); }
         .admin-checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 4px; }
         .admin-image-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -334,8 +342,23 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             </div>
 
             <div class="admin-form-grid full">
-                <div class="admin-form-group"><label>Description (FR)</label><textarea class="admin-field" id="f_desc"></textarea></div>
-                <div class="admin-form-group"><label>Description (EN)</label><textarea class="admin-field" id="f_desc_en"></textarea></div>
+                <div class="admin-form-group">
+                    <label>Description (FR)</label>
+                    <div class="desc-toolbar">
+                        <button type="button" title="Gras" onclick="wrapDescSelection('f_desc', '**')">B</button>
+                        <button type="button" title="Italique" onclick="wrapDescSelection('f_desc', '*')">I</button>
+                    </div>
+                    <textarea class="admin-field" id="f_desc"></textarea>
+                    <p class="admin-help">Sélectionnez du texte puis cliquez sur B/I (ou tapez directement **gras** / *italique*).</p>
+                </div>
+                <div class="admin-form-group">
+                    <label>Description (EN)</label>
+                    <div class="desc-toolbar">
+                        <button type="button" title="Gras" onclick="wrapDescSelection('f_desc_en', '**')">B</button>
+                        <button type="button" title="Italique" onclick="wrapDescSelection('f_desc_en', '*')">I</button>
+                    </div>
+                    <textarea class="admin-field" id="f_desc_en"></textarea>
+                </div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
@@ -1170,6 +1193,16 @@ document.getElementById('f_format_select').addEventListener('change', (e) => {
     if (!autre.hidden) autre.focus();
     formulaireModifie = true;
 });
+
+function wrapDescSelection(textareaId, marker) {
+    const el = document.getElementById(textareaId);
+    const { selectionStart: start, selectionEnd: end, value } = el;
+    const selected = value.slice(start, end) || 'texte';
+    el.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
+    el.focus();
+    el.setSelectionRange(start + marker.length, start + marker.length + selected.length);
+    formulaireModifie = true;
+}
 
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,

@@ -142,6 +142,12 @@ function escapeHTML(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function formatDesc(s) {
+    return escapeHTML(s)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>');
+}
+
 const burger = document.getElementById('navBurger');
 const navLinks = document.getElementById('navLinks');
 burger.addEventListener('click', () => {
@@ -450,7 +456,7 @@ function openProductModal(id) {
     buildModalMedia(p, displayName);
     modalTag.textContent = pick(p, 'tag');
     modalTitle.textContent = displayName;
-    modalDesc.textContent = displayDesc || '';
+    modalDesc.innerHTML = displayDesc ? formatDesc(displayDesc) : '';
     modalDesc.style.display = displayDesc ? '' : 'none';
 
     const specs = [
