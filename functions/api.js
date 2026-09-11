@@ -173,6 +173,7 @@ function commandeFromRow(row) {
         subtotal: row.subtotal || '', lang: row.lang || '', statut: row.statut,
         suivi: row.suivi || '', items_json: row.items_json || '[]',
         paye: !!row.stock_decremented,
+        facture_numero: row.facture_numero || '',
     };
 }
 
@@ -192,10 +193,24 @@ async function adminSetStatutCommande(env, id, statut, suivi) {
     if (!commande) throw new Error(`Commande id ${id} introuvable.`);
 
     const suiviFinal = statut === 'Expédié' ? String(suivi || '').trim() : commande.suivi;
-    await db.prepare('UPDATE commandes SET statut = ?, suivi = ? WHERE id = ?').bind(statut, suiviFinal, id).run();
+
+    let pieceJointe = null;
+    let factureNumero = commande.facture_numero;
+    let factureDate = commande.facture_date;
+    if (statut === 'Expédié' && !factureNumero) {
+        const facture = await genererFactureCommande(db, commande);
+        if (facture) {
+            factureNumero = facture.numero;
+            factureDate = new Date().toISOString();
+            pieceJointe = { filename: `facture-${facture.numero}.pdf`, content: facture.pdf };
+        }
+    }
+
+    await db.prepare('UPDATE commandes SET statut = ?, suivi = ?, facture_numero = ?, facture_date = ? WHERE id = ?')
+        .bind(statut, suiviFinal, factureNumero, factureDate, id).run();
 
     if (statut !== 'Annulée') {
-        await envoyerMailStatutCommande(env, { name: commande.name, email: commande.email, lang: commande.lang }, statut, suiviFinal);
+        await envoyerMailStatutCommande(env, { name: commande.name, email: commande.email, lang: commande.lang }, statut, suiviFinal, pieceJointe);
     }
 
     const indexAtteint = PROGRESSION_STATUTS_STOCK.indexOf(statut);
@@ -306,7 +321,13 @@ async function handleAction(data, env) {
 
 const MAIL_SITE_URL = 'https://tarotlens.boutique';
 
-async function envoyerEmail(env, { to, subject, html, text, replyTo }) {
+function uint8ToBase64(bytes) {
+    let binaire = '';
+    for (let i = 0; i < bytes.length; i++) binaire += String.fromCharCode(bytes[i]);
+    return btoa(binaire);
+}
+
+async function envoyerEmail(env, { to, subject, html, text, replyTo, attachments }) {
     if (!env.RESEND_API_KEY) return;
     await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -315,6 +336,9 @@ async function envoyerEmail(env, { to, subject, html, text, replyTo }) {
             from: 'TarotLens <no-reply@tarotlens.boutique>',
             to: [to], subject, html, text,
             reply_to: replyTo || undefined,
+            attachments: attachments && attachments.length
+                ? attachments.map(a => ({ filename: a.filename, content: uint8ToBase64(a.content) }))
+                : undefined,
         }),
     });
 }
@@ -379,7 +403,7 @@ const MAIL_I18N = {
     en: { greeting: 'Hi', signoff: 'See you soon,', team: 'The TarotLens team' },
 };
 
-async function envoyerMailStatutCommande(env, commande, statut, suivi) {
+async function envoyerMailStatutCommande(env, commande, statut, suivi, pieceJointe) {
     if (STATUTS_NOTIFIES.indexOf(statut) < 0) return;
     if (!commande.email) return;
     const tpl = MAILS_STATUT_COMMANDE[statut];
@@ -398,7 +422,167 @@ async function envoyerMailStatutCommande(env, commande, statut, suivi) {
         text: bodyPlain,
         html: mailEnveloppeHtml(mailCorpsHtml(i18n, texte, name, suivi)),
         replyTo: env.ORDER_NOTIFY_EMAIL,
+        attachments: pieceJointe ? [pieceJointe] : undefined,
     });
+}
+
+const VENDEUR_FACTURE = {
+    marque: 'TarotLens',
+    nom: 'Chloé GIORGETTI EI',
+    adresse: '18 rue des Francs, 57000 Metz',
+    siret: '107 177 660 00011',
+};
+const MENTION_TVA = 'TVA non applicable, art. 293 B du CGI';
+const MENTION_PAIEMENT = 'Réglée par virement bancaire';
+
+const WINANSI_OVERRIDES = { '€': 0x80, '’': 0x92, '“': 0x93, '”': 0x94, '–': 0x96, '—': 0x97 };
+
+function latin1Bytes(str) {
+    const out = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        const code = ch.charCodeAt(0);
+        out[i] = WINANSI_OVERRIDES[ch] ?? (code <= 255 ? code : 63);
+    }
+    return out;
+}
+
+function pdfEscape(str) {
+    return String(str ?? '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function concatBytes(chunks) {
+    const total = chunks.reduce((n, c) => n + c.length, 0);
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) { out.set(c, offset); offset += c.length; }
+    return out;
+}
+
+const PDF_ASCII = new TextEncoder();
+
+function genererFacturePDF({ numero, date, client, lignes, totalTTC }) {
+    const ops = [];
+    const text = (str, x, y, { font = 'F1', size = 10 } = {}) => {
+        ops.push(`BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscape(str)}) Tj ET`);
+    };
+    const rect = (x, y, w, h, gray) => ops.push(`${gray} g ${x} ${y} ${w} ${h} re f`);
+    const hline = (x1, y, x2) => ops.push(`${x1} ${y} m ${x2} ${y} l S`);
+
+    const left = 50, right = 400, pageW = 545;
+
+    let yL = 780;
+    text(VENDEUR_FACTURE.marque, left, yL, { font: 'F2', size: 18 }); yL -= 22;
+    text(VENDEUR_FACTURE.nom, left, yL); yL -= 14;
+    text(VENDEUR_FACTURE.adresse, left, yL); yL -= 14;
+    text(`SIRET : ${VENDEUR_FACTURE.siret}`, left, yL); yL -= 14;
+
+    let yR = 780;
+    text('FACTURE', right, yR, { font: 'F2', size: 16 }); yR -= 20;
+    text(`N° ${numero}`, right, yR); yR -= 14;
+    text(`Date : ${date}`, right, yR); yR -= 14;
+
+    let y = Math.min(yL, yR) - 20;
+
+    text('Client', left, y, { font: 'F2', size: 11 }); y -= 16;
+    client.split('\n').forEach(l => { text(l, left, y); y -= 14; });
+    y -= 16;
+
+    rect(left, y - 4, pageW - left, 18, '0.85');
+    ops.push('0 g');
+    text('Désignation', left + 6, y, { font: 'F2' });
+    text('Qté', 350, y, { font: 'F2' });
+    text('PU', 410, y, { font: 'F2' });
+    text('Total', 480, y, { font: 'F2' });
+    y -= 22;
+
+    lignes.forEach(l => {
+        text(l.nom, left + 6, y);
+        text(String(l.qte), 350, y);
+        text(`${l.pu.toFixed(2)} €`, 410, y);
+        text(`${(l.pu * l.qte).toFixed(2)} €`, 480, y);
+        y -= 18;
+    });
+
+    y -= 4;
+    hline(left, y + 12, pageW);
+    y -= 12;
+    text(`Total TTC : ${totalTTC.toFixed(2)} €`, 380, y, { font: 'F2', size: 12 });
+    y -= 30;
+
+    text(MENTION_TVA, left, y, { size: 9 }); y -= 14;
+    text(MENTION_PAIEMENT, left, y, { size: 9 });
+
+    const contentBytes = latin1Bytes(ops.join('\n'));
+
+    const objects = [
+        PDF_ASCII.encode('<< /Type /Catalog /Pages 2 0 R >>'),
+        PDF_ASCII.encode('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+        PDF_ASCII.encode('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>'),
+        concatBytes([PDF_ASCII.encode(`<< /Length ${contentBytes.length} >>\nstream\n`), contentBytes, PDF_ASCII.encode('\nendstream')]),
+        PDF_ASCII.encode('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'),
+        PDF_ASCII.encode('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'),
+    ];
+
+    const chunks = [PDF_ASCII.encode('%PDF-1.4\n')];
+    const offsets = [0];
+    let pos = chunks[0].length;
+    objects.forEach((body, i) => {
+        offsets.push(pos);
+        const head = PDF_ASCII.encode(`${i + 1} 0 obj\n`);
+        const tail = PDF_ASCII.encode('\nendobj\n');
+        chunks.push(head, body, tail);
+        pos += head.length + body.length + tail.length;
+    });
+
+    const xrefStart = pos;
+    let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    for (let i = 1; i <= objects.length; i++) xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+    const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+    chunks.push(PDF_ASCII.encode(xref), PDF_ASCII.encode(trailer));
+
+    return concatBytes(chunks);
+}
+
+async function prochainNumeroFacture(db) {
+    const annee = new Date().getFullYear();
+    const prefix = `${annee}-`;
+    const row = await db.prepare("SELECT facture_numero FROM commandes WHERE facture_numero LIKE ? ORDER BY facture_numero DESC LIMIT 1")
+        .bind(prefix + '%').first();
+    let n = 1;
+    if (row && row.facture_numero) {
+        const suffixe = parseInt(row.facture_numero.split('-')[1], 10);
+        if (!isNaN(suffixe)) n = suffixe + 1;
+    }
+    return prefix + String(n).padStart(4, '0');
+}
+
+async function genererFactureCommande(db, commande) {
+    let items;
+    try { items = JSON.parse(commande.items_json || '[]'); } catch { items = []; }
+    if (!Array.isArray(items) || !items.length) return null;
+
+    const idsManquants = items.filter(it => it.price == null).map(it => it.id);
+    const prixParId = {};
+    if (idsManquants.length) {
+        const { results } = await db.prepare(`SELECT id, price FROM produits WHERE id IN (${idsManquants.map(() => '?').join(',')})`)
+            .bind(...idsManquants).all();
+        results.forEach(r => { prixParId[r.id] = r.price; });
+    }
+
+    const lignes = items.map(it => ({
+        nom: it.name || `#${it.id}`,
+        qte: Number(it.qty) || 0,
+        pu: it.price != null ? Number(it.price) : Number(prixParId[it.id]) || 0,
+    }));
+    const totalTTC = lignes.reduce((n, l) => n + l.pu * l.qte, 0);
+
+    const numero = commande.facture_numero || await prochainNumeroFacture(db);
+    const date = new Date(commande.date || Date.now()).toLocaleDateString('fr-FR');
+    const client = [commande.name, commande.address, commande.email].filter(Boolean).join('\n');
+
+    const pdf = genererFacturePDF({ numero, date, client, lignes, totalTTC });
+    return { numero, pdf };
 }
 
 async function sendOrderEmail(env, data) {
@@ -471,7 +655,7 @@ async function handleOrderFlow(data, env) {
     if (indisponibles.length) return { ok: false, error: 'stock', items: indisponibles };
 
     const itemsSummary = (data.items || []).map(it => `${it.name} x${it.qty}`).join(', ');
-    const itemsJson = JSON.stringify((data.items || []).map(it => ({ id: it.id, qty: it.qty })));
+    const itemsJson = JSON.stringify((data.items || []).map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price })));
     await env.DB.prepare(`INSERT INTO commandes (date, name, email, phone, address, items_summary, subtotal, lang, statut, suivi, items_json, stock_decremented)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Commande reçue', '', ?, 0)`)
         .bind(new Date().toISOString(), data.name || '', data.email || '', data.phone || '', data.address || '',

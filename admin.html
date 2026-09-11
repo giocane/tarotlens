@@ -808,7 +808,7 @@ function renderCommandes() {
                 <div class="admin-suivi-input" data-row="${c.row}" style="display:${c.statut === 'Expédié' ? 'flex' : 'none'};gap:6px;align-items:center">
                     <input class="admin-field" style="width:110px" placeholder="N° suivi" data-suivi-input="${c.row}">
                     <button type="button" class="btn btn-ghost sm" data-suivi-confirm="${c.row}">OK</button>
-                </div>`}</td>
+                </div>`}${c.facture_numero ? `<br><span class="admin-muted">Facture ${escapeHTML(c.facture_numero)}</span>` : ''}</td>
             <td data-label="Actions">
                 ${estArchivee
                     ? `<button type="button" class="btn btn-ghost sm" data-unarchive-commande="${c.row}">Désarchiver</button>`
