@@ -1109,17 +1109,18 @@ function badgeRupture(p) {
     return p.inStock === false ? ' — marqué en rupture' : '';
 }
 
-const CATEGORIE_LABELS = { deck: 'Decks', accessory: 'Accessoires', bundle: 'Bundles' };
+const CATEGORIE_LABELS = { deck: 'Decks', accessory: 'Accessoires' };
+function groupeAffichage(cat) { return cat === 'accessory' ? 'accessory' : 'deck'; }
 
 function renderProduitsListe() {
     const el = document.getElementById('produitsListe');
     if (!produitsCache.length) { el.innerHTML = '<p class="admin-muted">Aucun produit pour l\'instant.</p>'; return; }
 
-    const cats = [];
-    produitsCache.forEach(p => { if (!cats.includes(p.cat)) cats.push(p.cat); });
+    const groupes = [];
+    produitsCache.forEach(p => { const g = groupeAffichage(p.cat); if (!groupes.includes(g)) groupes.push(g); });
 
-    el.innerHTML = cats.map(cat => {
-        const items = produitsCache.filter(p => p.cat === cat);
+    el.innerHTML = groupes.map(groupe => {
+        const items = produitsCache.filter(p => groupeAffichage(p.cat) === groupe);
         const lignes = items.map((p, iLocal) => `
             <div class="admin-prod-row">
                 <span class="admin-move-btns">
@@ -1137,7 +1138,7 @@ function renderProduitsListe() {
                 <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
                 <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
             </div>`).join('');
-        return `<p class="admin-section-label">${escapeHTML(CATEGORIE_LABELS[cat] || cat || 'Sans catégorie')}</p>${lignes}`;
+        return `<p class="admin-section-label">${escapeHTML(CATEGORIE_LABELS[groupe] || groupe || 'Sans catégorie')}</p>${lignes}`;
     }).join('');
 
     el.querySelectorAll('[data-edit-produit]').forEach(b => b.addEventListener('click', () => ouvrirFormProduit(+b.dataset.editProduit)));

@@ -34,8 +34,12 @@ function produitFromRow(row) {
     };
 }
 
+function categoriesDuGroupe(cat) {
+    return cat === 'accessory' ? ['accessory'] : ['deck', 'bundle'];
+}
+
 async function actionProduitsPublic(db) {
-    const { results } = await db.prepare('SELECT * FROM produits ORDER BY cat, sort_order').all();
+    const { results } = await db.prepare("SELECT * FROM produits ORDER BY (cat = 'accessory'), sort_order").all();
     const produits = results.map(produitFromRow);
     if (!produits.length) return { ok: false, error: 'Catalogue vide.' };
     return { ok: true, produits };
@@ -122,7 +126,8 @@ async function adminSaveProduit(db, p) {
         const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(p.id).first();
         return produitFromRow(row);
     }
-    const maxRow = await db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM produits WHERE cat = ?').bind(l.cat).first();
+    const groupe = categoriesDuGroupe(l.cat);
+    const maxRow = await db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM produits WHERE cat IN (${groupe.map(() => '?').join(',')})`).bind(...groupe).first();
     const { meta } = await db.prepare(`INSERT INTO produits (cat, name, name_en, tag, tag_en, cards, format, format_en,
             weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, images, inStock, hero, comingSoon, sort_order)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -136,9 +141,11 @@ async function adminSaveProduit(db, p) {
 async function adminDeplacerProduit(db, id, sens) {
     const p = await db.prepare('SELECT id, cat, sort_order FROM produits WHERE id = ?').bind(id).first();
     if (!p) throw new Error(`Produit id ${id} introuvable.`);
+    const groupe = categoriesDuGroupe(p.cat);
+    const placeholders = groupe.map(() => '?').join(',');
     const voisin = sens === 'up'
-        ? await db.prepare('SELECT id, sort_order FROM produits WHERE cat = ? AND sort_order < ? ORDER BY sort_order DESC LIMIT 1').bind(p.cat, p.sort_order).first()
-        : await db.prepare('SELECT id, sort_order FROM produits WHERE cat = ? AND sort_order > ? ORDER BY sort_order ASC LIMIT 1').bind(p.cat, p.sort_order).first();
+        ? await db.prepare(`SELECT id, sort_order FROM produits WHERE cat IN (${placeholders}) AND sort_order < ? ORDER BY sort_order DESC LIMIT 1`).bind(...groupe, p.sort_order).first()
+        : await db.prepare(`SELECT id, sort_order FROM produits WHERE cat IN (${placeholders}) AND sort_order > ? ORDER BY sort_order ASC LIMIT 1`).bind(...groupe, p.sort_order).first();
     if (!voisin) return;
     await db.batch([
         db.prepare('UPDATE produits SET sort_order = ? WHERE id = ?').bind(voisin.sort_order, p.id),
@@ -216,7 +223,7 @@ async function handleAdmin(action, p, env) {
         case 'adminLogin':
             return { ok: true };
         case 'adminListProduits': {
-            const { results } = await db.prepare('SELECT * FROM produits ORDER BY cat, sort_order').all();
+            const { results } = await db.prepare("SELECT * FROM produits ORDER BY (cat = 'accessory'), sort_order").all();
             return { ok: true, produits: results.map(produitFromRow) };
         }
         case 'adminSaveProduit':
