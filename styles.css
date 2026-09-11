@@ -219,7 +219,8 @@ img { max-width: 100%; display: block; }
 .prod-card-actions .btn { flex: 1; text-align: center; }
 
 .prod-card.out-of-stock .prod-card-media { filter: grayscale(70%); opacity: .55; }
-.prod-card.coming-soon .prod-card-media { filter: blur(7px); }
+.prod-card.coming-soon .prod-card-media img,
+.prod-card.coming-soon .prod-card-media .prod-card-media-glyph { filter: blur(7px); }
 .stock-badge {
     display: inline-block; align-self: flex-start; text-align: center;
     background: var(--ink); color: var(--cream);
