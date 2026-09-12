@@ -205,6 +205,7 @@
                     <label class="admin-checkbox-row" style="margin-left:8px"><input type="checkbox" id="afficherArchivees"> Afficher les archivées</label>
                 </div>
                 <button type="button" class="btn btn-ghost sm" id="archiveAllBtn">Archiver les expédiées/annulées visibles</button>
+                <button type="button" class="btn btn-ghost sm" id="backfillFacturesBtn">Générer les factures manquantes</button>
                 <button type="button" class="btn btn-ghost sm" id="refreshCommandesBtn">Actualiser</button>
                 <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
                 <button type="button" class="btn btn-ghost sm" id="exportXlsxBtn">Exporter en XLSX</button>
@@ -952,6 +953,29 @@ document.getElementById('archiveAllBtn').addEventListener('click', () => {
     saveArchivees(archivees);
     renderCommandes();
     toast(n ? `${n} commande(s) archivée(s).` : 'Rien à archiver parmi les commandes visibles.');
+});
+
+document.getElementById('backfillFacturesBtn').addEventListener('click', async () => {
+    const aTraiter = commandesCache.filter(c => c.statut === 'Expédié' && !c.facture_numero).length;
+    if (!aTraiter) { toast('Aucune facture manquante.'); return; }
+    if (!confirm(`Générer les factures manquantes pour ${aTraiter} commande(s) expédiée(s) ? Chaque facture portera la date de la commande. Aucun e-mail ne sera envoyé.`)) return;
+
+    const btn = document.getElementById('backfillFacturesBtn');
+    btn.disabled = true;
+    let total = 0;
+    const echecs = [];
+    while (true) {
+        const rep = await api('adminBackfillFactures', { limite: 15 });
+        if (!rep.ok) { toast(rep.error, true); break; }
+        total += rep.compte;
+        if (rep.echecs && rep.echecs.length) echecs.push(...rep.echecs);
+        toast(`${total} facture(s) générée(s)… (${rep.restant} restante(s))`);
+        if (!rep.restant || !rep.compte) break;
+    }
+    btn.disabled = false;
+    toast(`Terminé : ${total} facture(s) générée(s).${echecs.length ? ' ' + echecs.length + ' échec(s), voir la console.' : ''}`);
+    if (echecs.length) console.warn('Commandes en échec (génération facture) :', echecs);
+    await chargerCommandes();
 });
 
 const COLONNES_COMMANDES = [

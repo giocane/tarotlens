@@ -239,6 +239,32 @@ async function adminObtenirFacturePDF(env, id) {
     return facture;
 }
 
+async function adminBackfillFactures(env, limite) {
+    const db = env.DB;
+    const { results } = await db.prepare(
+        "SELECT * FROM commandes WHERE statut = 'Expédié' AND (facture_numero IS NULL OR facture_numero = '') ORDER BY date ASC LIMIT ?"
+    ).bind(limite).all();
+
+    let compte = 0;
+    const echecs = [];
+    for (const commande of results) {
+        try {
+            const facture = await genererFactureCommande(db, commande);
+            if (!facture) { echecs.push({ id: commande.id, nom: commande.name || '', raison: 'articles manquants' }); continue; }
+            await db.prepare('UPDATE commandes SET facture_numero = ?, facture_date = ? WHERE id = ?')
+                .bind(facture.numero, commande.date, commande.id).run();
+            compte++;
+        } catch (err) {
+            echecs.push({ id: commande.id, nom: commande.name || '', raison: String(err.message || err) });
+        }
+    }
+
+    const restantRow = await db.prepare(
+        "SELECT COUNT(*) AS n FROM commandes WHERE statut = 'Expédié' AND (facture_numero IS NULL OR facture_numero = '')"
+    ).first();
+    return { compte, restant: restantRow ? restantRow.n : 0, echecs };
+}
+
 async function decrementerStockCommande(db, itemsJson) {
     let items;
     try { items = JSON.parse(itemsJson || '[]'); } catch { return; }
@@ -285,6 +311,10 @@ async function handleAdmin(action, p, env) {
         case 'adminFacturePDF': {
             const facture = await adminObtenirFacturePDF(env, Number(p.row));
             return { ok: true, numero: facture.numero, pdf: uint8ToBase64(facture.pdf) };
+        }
+        case 'adminBackfillFactures': {
+            const resultat = await adminBackfillFactures(env, Math.min(Math.max(Number(p.limite) || 15, 1), 50));
+            return { ok: true, ...resultat };
         }
         case 'adminListStock': {
             const { results } = await db.prepare('SELECT * FROM stock').all();
@@ -599,18 +629,18 @@ async function genererFactureCommande(db, commande) {
     try { items = JSON.parse(commande.items_json || '[]'); } catch { items = []; }
     if (!Array.isArray(items) || !items.length) return null;
 
-    const idsManquants = items.filter(it => it.price == null).map(it => it.id);
-    const prixParId = {};
+    const idsManquants = items.filter(it => it.price == null || !it.name).map(it => it.id);
+    const infosParId = {};
     if (idsManquants.length) {
-        const { results } = await db.prepare(`SELECT id, price FROM produits WHERE id IN (${idsManquants.map(() => '?').join(',')})`)
+        const { results } = await db.prepare(`SELECT id, name, price FROM produits WHERE id IN (${idsManquants.map(() => '?').join(',')})`)
             .bind(...idsManquants).all();
-        results.forEach(r => { prixParId[r.id] = r.price; });
+        results.forEach(r => { infosParId[r.id] = { name: r.name, price: r.price }; });
     }
 
     const lignes = items.map(it => ({
-        nom: it.name || `#${it.id}`,
+        nom: it.name || (infosParId[it.id] && infosParId[it.id].name) || `#${it.id}`,
         qte: Number(it.qty) || 0,
-        pu: it.price != null ? Number(it.price) : Number(prixParId[it.id]) || 0,
+        pu: it.price != null ? Number(it.price) : Number(infosParId[it.id] && infosParId[it.id].price) || 0,
     }));
 
     const fraisPort = Number(commande.frais_port) || 0;
