@@ -516,6 +516,45 @@ function switchTab(name) {
 
 const CHANGELOG = [
     {
+        version: 'v3.8', date: '12/09/2026', titre: 'Frais de port, facture PDF à la demande & tableau repensé',
+        items: [
+            'Champ "frais de port" par commande, pris en compte automatiquement dans le montant de la facture',
+            'Bouton "Facture PDF" pour retélécharger la facture de n\'importe quelle commande déjà expédiée',
+            'Génération rétroactive des factures manquantes pour les commandes expédiées avant la mise en place de la facturation automatique (date de facture = date de la commande, aucun e-mail renvoyé)',
+            'Tableau des commandes réorganisé : moins de colonnes (langue et téléphone regroupés avec le client, n° de suivi et de facture sous le statut), tient désormais sans défilement horizontal',
+        ],
+    },
+    {
+        version: 'v3.7', date: '11/09/2026', titre: 'Facture automatique à l\'expédition',
+        items: [
+            'Génération et envoi automatique de la facture PDF (numérotée AAAA-NNNN) dès qu\'une commande passe au statut "Expédié"',
+            'Le prix et le nom de chaque article sont désormais enregistrés au moment de la commande, pour que la facture reflète le prix réellement payé',
+        ],
+    },
+    {
+        version: 'v3.6', date: '11/09/2026', titre: 'Fiches produits & catalogue',
+        items: [
+            'Nouveau statut "bientôt disponible" pour annoncer un produit avant sa sortie',
+            'Correction d\'un bug d\'affichage qui cachait le badge "Nouveauté"',
+            'Mini éditeur (gras/italique) pour rédiger les descriptions produit',
+            'Bloc "infos carte" de la fiche produit mis en valeur dans un encart orange',
+            'Correction du tri du catalogue : le Bundle peut de nouveau être déplacé',
+            'Ajout des vidéos de présentation de TOO MUCH TAROT FW26',
+        ],
+    },
+    {
+        version: 'v3.5', date: '30/08/2026', titre: 'Tableau de bord',
+        items: [
+            'Le CA réel prend désormais en compte toute commande passée au statut "Paiement validé", pas seulement les commandes terminées',
+        ],
+    },
+    {
+        version: 'v3.4', date: '24/08/2026', titre: 'Nettoyage de la page d\'accueil',
+        items: [
+            'Retrait du bloc d\'avis Instagram en pied de page',
+        ],
+    },
+    {
         version: 'v3.3', date: '22/08/2026', titre: 'Mentions légales complètes',
         items: [
             'Structure complète des mentions légales et CGV (hébergeur, propriété intellectuelle, paiement, livraison, droit de rétractation légal de 14 jours, litiges)',
