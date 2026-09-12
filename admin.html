@@ -831,10 +831,11 @@ function renderCommandes() {
                     <input class="admin-field" style="width:110px" placeholder="N° suivi" data-suivi-input="${c.row}">
                     <button type="button" class="btn btn-ghost sm" data-suivi-confirm="${c.row}">OK</button>
                 </div>`}
+                ${c.facture_numero ? `<div class="admin-muted" style="margin-top:2px">Facture ${escapeHTML(c.facture_numero)}</div>` : ''}
             </td>
             <td data-label="Actions">
                 ${mailtoHref ? `<a class="btn btn-ghost sm" style="display:inline-block" href="${escapeHTML(mailtoHref)}">Contacter</a>` : ''}
-                ${c.statut === 'Expédié' ? `<button type="button" class="btn btn-ghost sm" data-facture-commande="${c.row}">Facture PDF</button>${c.facture_numero ? `<div class="admin-muted">Facture ${escapeHTML(c.facture_numero)}</div>` : ''}` : ''}
+                ${c.statut === 'Expédié' ? `<button type="button" class="btn btn-ghost sm" data-facture-commande="${c.row}">Facture PDF</button>` : ''}
                 ${estArchivee
                     ? `<button type="button" class="btn btn-ghost sm" data-unarchive-commande="${c.row}">Désarchiver</button>`
                     : (peutArchiver ? `<button type="button" class="btn btn-ghost sm" data-archive-commande="${c.row}">Archiver</button>` : '')}
