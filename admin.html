@@ -406,6 +406,25 @@ const getCle = () => { try { return localStorage.getItem(KEY_STORAGE) || ''; } c
 const setCle = (v) => { try { localStorage.setItem(KEY_STORAGE, v); } catch {   } };
 const effacerCle = () => { try { localStorage.removeItem(KEY_STORAGE); } catch {   } };
 
+function base64VersOctets(base64) {
+    const binaire = atob(base64);
+    const octets = new Uint8Array(binaire.length);
+    for (let i = 0; i < binaire.length; i++) octets[i] = binaire.charCodeAt(i);
+    return octets;
+}
+
+function telechargerBlob(octets, filename, mimeType) {
+    const blob = new Blob([octets], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 function escapeHTML(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -810,6 +829,7 @@ function renderCommandes() {
                     <button type="button" class="btn btn-ghost sm" data-suivi-confirm="${c.row}">OK</button>
                 </div>`}${c.facture_numero ? `<br><span class="admin-muted">Facture ${escapeHTML(c.facture_numero)}</span>` : ''}</td>
             <td data-label="Actions">
+                ${c.statut === 'Expédié' ? `<button type="button" class="btn btn-ghost sm" data-facture-commande="${c.row}">Facture PDF</button>` : ''}
                 ${estArchivee
                     ? `<button type="button" class="btn btn-ghost sm" data-unarchive-commande="${c.row}">Désarchiver</button>`
                     : (peutArchiver ? `<button type="button" class="btn btn-ghost sm" data-archive-commande="${c.row}">Archiver</button>` : '')}
@@ -836,6 +856,21 @@ function renderCommandes() {
             const suivi = input.value.trim();
             if (!suivi) { input.focus(); return; }
             enregistrerStatut(row, 'Expédié', suivi);
+        });
+    });
+    el.querySelectorAll('[data-facture-commande]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const row = +btn.dataset.factureCommande;
+            btn.disabled = true;
+            const rep = await api('adminFacturePDF', { row });
+            btn.disabled = false;
+            if (rep.ok) {
+                const c = commandesCache.find(x => x.row === row);
+                if (c) c.facture_numero = rep.numero;
+                telechargerBlob(base64VersOctets(rep.pdf), `facture-${rep.numero}.pdf`, 'application/pdf');
+            } else {
+                toast(rep.error, true);
+            }
         });
     });
     el.querySelectorAll('[data-delete-commande]').forEach(btn => {

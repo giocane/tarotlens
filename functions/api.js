@@ -222,6 +222,22 @@ async function adminSetStatutCommande(env, id, statut, suivi) {
     return { ...commande, statut, suivi: suiviFinal };
 }
 
+async function adminObtenirFacturePDF(env, id) {
+    const db = env.DB;
+    const commande = await db.prepare('SELECT * FROM commandes WHERE id = ?').bind(id).first();
+    if (!commande) throw new Error(`Commande id ${id} introuvable.`);
+    if (commande.statut !== 'Expédié') throw new Error('La commande doit être au statut Expédié.');
+
+    const facture = await genererFactureCommande(db, commande);
+    if (!facture) throw new Error('Impossible de générer la facture (articles manquants).');
+
+    if (!commande.facture_numero) {
+        await db.prepare('UPDATE commandes SET facture_numero = ?, facture_date = ? WHERE id = ?')
+            .bind(facture.numero, new Date().toISOString(), id).run();
+    }
+    return facture;
+}
+
 async function decrementerStockCommande(db, itemsJson) {
     let items;
     try { items = JSON.parse(itemsJson || '[]'); } catch { return; }
@@ -259,6 +275,10 @@ async function handleAdmin(action, p, env) {
         case 'adminDeleteCommande':
             await db.prepare('DELETE FROM commandes WHERE id = ?').bind(Number(p.row)).run();
             return { ok: true };
+        case 'adminFacturePDF': {
+            const facture = await adminObtenirFacturePDF(env, Number(p.row));
+            return { ok: true, numero: facture.numero, pdf: uint8ToBase64(facture.pdf) };
+        }
         case 'adminListStock': {
             const { results } = await db.prepare('SELECT * FROM stock').all();
             return { ok: true, stock: results.map(r => ({ id: Number(r.id), nom: r.nom || '', qty: r.qty })) };
