@@ -54,6 +54,8 @@
         table.admin-table th, table.admin-table td { padding: 10px 10px; text-align: left; border-bottom: 1px solid rgba(26,22,20,.08); vertical-align: top; }
         table.admin-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; opacity: .6; }
         table.admin-table tr:last-child td { border-bottom: 0; }
+        #tab-commandes table.admin-table .admin-field { width: auto; padding: 8px 10px; font-size: 13px; border-radius: 10px; }
+        #tab-commandes table.admin-table select.admin-field { padding-right: 28px; }
 
         @media (max-width: 760px) {
             #tab-commandes .admin-table-wrap { overflow-x: visible; }
@@ -818,11 +820,11 @@ function renderCommandes() {
             <td data-label="Articles">${escapeHTML(c.items)}</td>
             <td data-label="Montant">${c.subtotal ? escapeHTML(c.subtotal) + ' €' : '—'}</td>
             <td data-label="Frais de port">
-                <input class="admin-field" style="width:70px" type="number" step="0.01" min="0" placeholder="0.00" value="${c.frais_port === '' ? '' : escapeHTML(c.frais_port)}" data-frais-port="${c.row}">
+                <input class="admin-field" style="width:80px" type="number" step="0.01" min="0" placeholder="0,00 €" value="${c.frais_port === '' ? '' : escapeHTML(c.frais_port)}" data-frais-port="${c.row}">
             </td>
             <td data-label="Langue">${escapeHTML(c.lang)}</td>
             <td data-label="Statut commande">
-                <select class="admin-field admin-select-statut" data-row="${c.row}">
+                <select class="admin-field admin-select-statut" style="width:180px" data-row="${c.row}">
                     ${STATUTS.map(s => `<option value="${s}" ${s === c.statut ? 'selected' : ''}>${STATUT_LABELS[s] || s}</option>`).join('')}
                 </select>
             </td>
