@@ -174,6 +174,7 @@ function commandeFromRow(row) {
         suivi: row.suivi || '', items_json: row.items_json || '[]',
         paye: !!row.stock_decremented,
         facture_numero: row.facture_numero || '',
+        frais_port: row.frais_port != null ? row.frais_port : '',
     };
 }
 
@@ -275,6 +276,12 @@ async function handleAdmin(action, p, env) {
         case 'adminDeleteCommande':
             await db.prepare('DELETE FROM commandes WHERE id = ?').bind(Number(p.row)).run();
             return { ok: true };
+        case 'adminSetFraisPort': {
+            const valeur = p.frais_port === '' || p.frais_port == null ? null : Number(p.frais_port);
+            if (valeur != null && (isNaN(valeur) || valeur < 0)) throw new Error('Frais de port invalides.');
+            await db.prepare('UPDATE commandes SET frais_port = ? WHERE id = ?').bind(valeur, Number(p.row)).run();
+            return { ok: true };
+        }
         case 'adminFacturePDF': {
             const facture = await adminObtenirFacturePDF(env, Number(p.row));
             return { ok: true, numero: facture.numero, pdf: uint8ToBase64(facture.pdf) };
@@ -605,6 +612,10 @@ async function genererFactureCommande(db, commande) {
         qte: Number(it.qty) || 0,
         pu: it.price != null ? Number(it.price) : Number(prixParId[it.id]) || 0,
     }));
+
+    const fraisPort = Number(commande.frais_port) || 0;
+    if (fraisPort > 0) lignes.push({ nom: 'Frais de port', qte: 1, pu: fraisPort });
+
     const totalTTC = lignes.reduce((n, l) => n + l.pu * l.qte, 0);
 
     const numero = commande.facture_numero || await prochainNumeroFacture(db);

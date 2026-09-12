@@ -209,7 +209,7 @@
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead>
-                        <tr><th>Date</th><th>Client</th><th>Contact</th><th>Adresse</th><th>Articles</th><th>Montant</th><th>Langue</th><th>Statut commande</th><th>Suivi</th><th></th></tr>
+                        <tr><th>Date</th><th>Client</th><th>Contact</th><th>Adresse</th><th>Articles</th><th>Montant</th><th>Frais de port</th><th>Langue</th><th>Statut commande</th><th>Suivi</th><th></th></tr>
                     </thead>
                     <tbody id="commandesBody"></tbody>
                 </table>
@@ -746,9 +746,9 @@ function saveArchivees(set) { localStorage.setItem(ARCHIVE_KEY, JSON.stringify([
 
 async function chargerCommandes() {
     const el = document.getElementById('commandesBody');
-    el.innerHTML = '<tr><td colspan="10">Chargement…</td></tr>';
+    el.innerHTML = '<tr><td colspan="11">Chargement…</td></tr>';
     const rep = await api('adminListCommandes');
-    if (!rep.ok) { el.innerHTML = `<tr><td colspan="10">Erreur : ${escapeHTML(rep.error)}</td></tr>`; return; }
+    if (!rep.ok) { el.innerHTML = `<tr><td colspan="11">Erreur : ${escapeHTML(rep.error)}</td></tr>`; return; }
     commandesCache = rep.commandes;
     majBadgeCommandes(commandesCache);
     renderCommandes();
@@ -802,7 +802,7 @@ function renderCommandes() {
     document.getElementById('commandesCount').textContent = lignes.length + ' / ' + commandesCache.length + ' commande(s)'
         + (nbArchivees ? ` (${nbArchivees} archivée(s)${afficherArchivees ? '' : ', masquée(s)'})` : '');
 
-    if (!lignes.length) { el.innerHTML = '<tr><td colspan="10">Aucune commande.</td></tr>'; return; }
+    if (!lignes.length) { el.innerHTML = '<tr><td colspan="11">Aucune commande.</td></tr>'; return; }
     el.innerHTML = lignes.map(c => {
         const sujet = encodeURIComponent('TarotLens — à propos de votre commande');
         const corps = encodeURIComponent(`Bonjour ${c.name || ''},\n\n`);
@@ -817,6 +817,9 @@ function renderCommandes() {
             <td data-label="Adresse">${escapeHTML(c.address) || '—'}</td>
             <td data-label="Articles">${escapeHTML(c.items)}</td>
             <td data-label="Montant">${c.subtotal ? escapeHTML(c.subtotal) + ' €' : '—'}</td>
+            <td data-label="Frais de port">
+                <input class="admin-field" style="width:70px" type="number" step="0.01" min="0" placeholder="0.00" value="${c.frais_port === '' ? '' : escapeHTML(c.frais_port)}" data-frais-port="${c.row}">
+            </td>
             <td data-label="Langue">${escapeHTML(c.lang)}</td>
             <td data-label="Statut commande">
                 <select class="admin-field admin-select-statut" data-row="${c.row}">
@@ -856,6 +859,22 @@ function renderCommandes() {
             const suivi = input.value.trim();
             if (!suivi) { input.focus(); return; }
             enregistrerStatut(row, 'Expédié', suivi);
+        });
+    });
+    el.querySelectorAll('[data-frais-port]').forEach(input => {
+        input.addEventListener('change', async () => {
+            const row = +input.dataset.fraisPort;
+            const valeur = input.value.trim();
+            input.disabled = true;
+            const rep = await api('adminSetFraisPort', { row, frais_port: valeur });
+            input.disabled = false;
+            if (rep.ok) {
+                const c = commandesCache.find(x => x.row === row);
+                if (c) c.frais_port = valeur;
+                toast('Frais de port enregistrés.');
+            } else {
+                toast(rep.error, true);
+            }
         });
     });
     el.querySelectorAll('[data-facture-commande]').forEach(btn => {
