@@ -22,6 +22,8 @@ function produitFromRow(row) {
         format_en: row.format_en || null,
         weight: row.weight || null,
         weight_en: row.weight_en || null,
+        finition: row.finition || null,
+        finition_en: row.finition_en || null,
         delivery: row.delivery || null,
         delivery_en: row.delivery_en || null,
         price: Number(row.price) || 0,
@@ -111,6 +113,7 @@ function produitVersLigne(p) {
         cards: p.cards ?? null, cardsDetail: p.cardsDetail || null, cardsDetail_en: p.cardsDetail_en || null,
         format: p.format || null, format_en: p.format_en || null,
         weight: p.weight || null, weight_en: p.weight_en || null,
+        finition: p.finition || null, finition_en: p.finition_en || null,
         delivery: p.delivery || null, delivery_en: p.delivery_en || null,
         price: Number(p.price) || 0, badge: p.badge || null,
         glyph: p.glyph || '✦', grad: p.grad || 'g-generic',
@@ -127,10 +130,10 @@ async function adminSaveProduit(db, p) {
     const l = produitVersLigne(p);
     if (p.id) {
         await db.prepare(`UPDATE produits SET cat=?, name=?, name_en=?, tag=?, tag_en=?, accroche=?, accroche_en=?, cards=?, cardsDetail=?, cardsDetail_en=?, format=?, format_en=?,
-            weight=?, weight_en=?, delivery=?, delivery_en=?, price=?, badge=?, glyph=?, grad=?, desc=?, desc_en=?, points=?, points_en=?,
+            weight=?, weight_en=?, finition=?, finition_en=?, delivery=?, delivery_en=?, price=?, badge=?, glyph=?, grad=?, desc=?, desc_en=?, points=?, points_en=?,
             images=?, inStock=?, hero=?, comingSoon=? WHERE id=?`)
             .bind(l.cat, l.name, l.name_en, l.tag, l.tag_en, l.accroche, l.accroche_en, l.cards, l.cardsDetail, l.cardsDetail_en, l.format, l.format_en, l.weight, l.weight_en,
-                l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, p.id)
+                l.finition, l.finition_en, l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, p.id)
             .run();
         const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(p.id).first();
         return produitFromRow(row);
@@ -138,10 +141,10 @@ async function adminSaveProduit(db, p) {
     const groupe = categoriesDuGroupe(l.cat);
     const maxRow = await db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM produits WHERE cat IN (${groupe.map(() => '?').join(',')})`).bind(...groupe).first();
     const { meta } = await db.prepare(`INSERT INTO produits (cat, name, name_en, tag, tag_en, accroche, accroche_en, cards, cardsDetail, cardsDetail_en, format, format_en,
-            weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, points, points_en, images, inStock, hero, comingSoon, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            weight, weight_en, finition, finition_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, points, points_en, images, inStock, hero, comingSoon, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(l.cat, l.name, l.name_en, l.tag, l.tag_en, l.accroche, l.accroche_en, l.cards, l.cardsDetail, l.cardsDetail_en, l.format, l.format_en, l.weight, l.weight_en,
-            l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, (maxRow.m || 0) + 1)
+            l.finition, l.finition_en, l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, (maxRow.m || 0) + 1)
         .run();
     const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(meta.last_row_id).first();
     return produitFromRow(row);
