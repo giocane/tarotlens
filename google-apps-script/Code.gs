@@ -40,9 +40,9 @@ var MAIL_I18N = {
 
 var SEUIL_STOCK_FAIBLE = 2;
 
-var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'cards',
+var PRODUITS_ENTETES = ['id', 'cat', 'name', 'name_en', 'tag', 'tag_en', 'accroche', 'accroche_en', 'cards',
     'format', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en',
-    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'images', 'inStock', 'hero'];
+    'price', 'badge', 'glyph', 'grad', 'desc', 'desc_en', 'points', 'points_en', 'images', 'inStock', 'hero'];
 
 var TEXTES_ENTETES = ['cle', 'fr', 'en'];
 
@@ -209,6 +209,8 @@ function produitDepuisLigne(o) {
         name_en: texteOuNull(o.name_en),
         tag: String(o.tag || '').trim(),
         tag_en: texteOuNull(o.tag_en),
+        accroche: texteOuNull(o.accroche),
+        accroche_en: texteOuNull(o.accroche_en),
         cards: (o.cards === '' || o.cards === null || o.cards === undefined) ? null : Number(o.cards),
         format: texteOuNull(o.format),
         format_en: texteOuNull(o.format_en),
@@ -224,6 +226,8 @@ function produitDepuisLigne(o) {
         images: images,
         desc: String(o.desc || ''),
         desc_en: texteOuNull(o.desc_en),
+        points: texteOuNull(o.points),
+        points_en: texteOuNull(o.points_en),
         inStock: !(o.inStock === false || String(o.inStock).toUpperCase() === 'FAUX' || String(o.inStock).toUpperCase() === 'FALSE'),
         hero: (o.hero === true || String(o.hero).toUpperCase() === 'VRAI' || String(o.hero).toUpperCase() === 'TRUE'),
     };

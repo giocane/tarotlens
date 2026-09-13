@@ -112,7 +112,9 @@
         <div class="modal-body">
             <p class="modal-tag" id="modalTag"></p>
             <h3 class="modal-title" id="modalTitle"></h3>
+            <p class="modal-accroche" id="modalAccroche"></p>
             <p class="modal-desc" id="modalDesc"></p>
+            <ul class="modal-points" id="modalPoints"></ul>
             <p class="modal-specs" id="modalSpecs"></p>
             <button class="btn btn-magenta" id="modalAddBtn" data-i18n="btn_addToCart">AJOUTER AU PANIER</button>
             <div id="modalNotify"></div>
@@ -390,7 +392,9 @@ const productModal = document.getElementById('productModal');
 const modalMedia = document.getElementById('modalMedia');
 const modalTag = document.getElementById('modalTag');
 const modalTitle = document.getElementById('modalTitle');
+const modalAccroche = document.getElementById('modalAccroche');
 const modalDesc = document.getElementById('modalDesc');
+const modalPoints = document.getElementById('modalPoints');
 const modalSpecs = document.getElementById('modalSpecs');
 const modalAddBtn = document.getElementById('modalAddBtn');
 const modalNotify = document.getElementById('modalNotify');
@@ -456,8 +460,15 @@ function openProductModal(id) {
     buildModalMedia(p, displayName);
     modalTag.textContent = pick(p, 'tag');
     modalTitle.textContent = displayName;
+    const displayAccroche = pick(p, 'accroche');
+    modalAccroche.textContent = displayAccroche || '';
+    modalAccroche.style.display = displayAccroche ? '' : 'none';
     modalDesc.innerHTML = displayDesc ? formatDesc(displayDesc) : '';
     modalDesc.style.display = displayDesc ? '' : 'none';
+
+    const points = (pick(p, 'points') || '').split('\n').map(s => s.trim()).filter(Boolean);
+    modalPoints.innerHTML = points.map(pt => `<li>${formatDesc(pt)}</li>`).join('');
+    modalPoints.style.display = points.length ? '' : 'none';
 
     const specs = [
         p.cards ? `${p.cards} ${t('unit_cards')}` : null,

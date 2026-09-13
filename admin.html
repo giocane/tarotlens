@@ -328,6 +328,8 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <div class="admin-form-group"><label>Prix (€)</label><input class="admin-field" id="f_price" type="number" min="0" step="0.01" required></div>
                 <div class="admin-form-group"><label>Étiquette / tag (FR)</label><input class="admin-field" id="f_tag"></div>
                 <div class="admin-form-group"><label>Étiquette / tag (EN)</label><input class="admin-field" id="f_tag_en"></div>
+                <div class="admin-form-group"><label>Accroche (FR)</label><input class="admin-field" id="f_accroche" placeholder="Phrase courte affichée sous le titre"></div>
+                <div class="admin-form-group"><label>Accroche (EN)</label><input class="admin-field" id="f_accroche_en"></div>
                 <div class="admin-form-group"><label>Symbole (glyphe)</label><input class="admin-field" id="f_glyph" maxlength="4"></div>
             </div>
 
@@ -372,6 +374,18 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_comingSoon"> Bientôt disponible (produit pas encore lancé — visuel flouté automatiquement, ajout au panier désactivé, formulaire "prévenez-moi" affiché à la place)</label>
+            </div>
+
+            <div class="admin-form-grid full">
+                <div class="admin-form-group">
+                    <label>Points clés (FR)</label>
+                    <textarea class="admin-field" id="f_points" placeholder="Un point par ligne, ex. :&#10;Livré dans un pochon avec des goodies&#10;Livret d'accompagnement au format PDF"></textarea>
+                    <p class="admin-help">Un point par ligne : affiché en liste à puces sur la fiche produit, sous la description.</p>
+                </div>
+                <div class="admin-form-group">
+                    <label>Points clés (EN)</label>
+                    <textarea class="admin-field" id="f_points_en"></textarea>
+                </div>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -1296,7 +1310,7 @@ let imagesEnEdition = [];
 let formulaireModifie = false;
 document.getElementById('produitForm').addEventListener('input', () => { formulaireModifie = true; });
 
-const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph'];
+const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'accroche', 'accroche_en', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph', 'points', 'points_en'];
 const FORMATS_PRESETS = ['Standard 70×120mm', 'Poker 63×89mm'];
 
 function appliquerFormatDansForm(format) {
@@ -1331,9 +1345,9 @@ function wrapDescSelection(textareaId, marker) {
 }
 
 function produitVide() {
-    return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', cards: null,
+    return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', accroche: '', accroche_en: '', cards: null,
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', images: [], inStock: true, hero: false, comingSoon: false };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', points: '', points_en: '', images: [], inStock: true, hero: false, comingSoon: false };
 }
 
 function ouvrirFormProduit(id) {
