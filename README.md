@@ -2,10 +2,12 @@
 
 Site vitrine + boutique de pré-commande pour les jeux de tarot/lenormand
 "Too Much" et "Has Been", et accessoires. HTML / CSS / JS purs, sans
-dépendance ni build (à part la XLSX export dans l'admin). Backend Google Apps
-Script (`google-apps-script/Code.gs`) branché sur un Google Sheet.
+dépendance ni build (à part la XLSX export dans l'admin). Backend Cloudflare
+Pages Functions (`functions/api.js`) + base D1.
 
-En ligne sur Cloudflare Pages.
+En ligne sur Cloudflare Pages. `google-apps-script/Code.gs` est l'ancien
+backend Google Sheets, abandonné depuis la migration vers Cloudflare (v3.0) —
+conservé à titre historique, plus du tout branché ni maintenu.
 
 ---
 
@@ -41,7 +43,7 @@ fonctionnent dans les deux cas.
 | Fichier | Rôle |
 |---------|------|
 | `data.js` | Catalogue produits de secours (`window.PRODUCTS`) — utilisé pour le tout premier rendu, avant que le catalogue live ne réponde |
-| `products.js` | Charge le catalogue live depuis le Sheet "Produits" (remplace `window.PRODUCTS` si la réponse est exploitable) |
+| `products.js` | Charge le catalogue live depuis l'API Cloudflare (table D1 `produits`), remplace `window.PRODUCTS` si la réponse est exploitable |
 | `cart.js` | Panier partagé (localStorage) : badge, navigation, add/remove/total ; expose aussi `ArcanaStock` (disponibilité live) |
 | `i18n.js` | FR / EN — dictionnaire, `data-i18n`, sélecteur de langue |
 | `panier.js` | Page panier : rendu des lignes, formulaire de commande, envoi au backend |
@@ -55,25 +57,27 @@ sans quoi certains visiteurs restent sur l'ancienne version en cache.
 
 ---
 
-## 🗄️ Backend (`google-apps-script/Code.gs`)
+## 🗄️ Backend (`functions/api.js` + Cloudflare D1)
 
-À coller dans Extensions > Apps Script du Google Sheet, déployé en Web App
-(exécuté en tant que "Moi", accès "Tous").
+Cloudflare Pages Functions, servi sous `/api` à côté du site statique. Base de
+données D1 (`env.DB`), photos sur R2. Auth admin par clé hachée (jamais en
+clair), rate-limiting des tentatives de connexion.
 
 Fonctionnalités : réception des commandes et des "prévenez-moi", relais du
-formulaire de contact, API admin (auth par clé hachée, jamais en clair),
-upload photos vers Drive, digest quotidien par e-mail (stock faible/rupture +
-demandes en attente), e-mails de suivi de commande multilingues.
+formulaire de contact, API admin (produits, stock, commandes, textes), upload
+photos, digest quotidien (stock faible/rupture + demandes en attente),
+e-mails de suivi de commande multilingues.
 
-### Onglets attendus dans le Sheet
+### Tables D1
 
-| Onglet | Colonnes | Notes |
+| Table | Colonnes clés | Notes |
 |---|---|---|
-| `Commandes` | date, nom, email, tel, adresse, articles, sous-total, langue, statut, numéro de suivi, articles (JSON `[{id,qty}]`, usage interne), stock déjà décrémenté (booléen, usage interne) | Remplie automatiquement. Le statut suit `STATUTS_COMMANDE` ; le numéro de suivi n'est rempli qu'au statut "Expédié" ; le flag "stock décrémenté" garantit un décompte une seule fois même si le statut repasse plusieurs fois par "Paiement validé". Chaque changement de statut (sauf "Annulée") envoie un e-mail auto au client dans sa langue. |
-| `Intérêts stock` | — | Inscriptions "prévenez-moi du retour en stock", remplie automatiquement. |
-| `Stock` | id, nom, quantité disponible | Éditable à la main ou depuis `admin.html`. Une ligne par produit. |
-| `Produits` | `id, cat, name, name_en, tag, tag_en, accroche, accroche_en, cards, format, format_en, weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, points, points_en, images, inStock, hero` | Ligne d'en-tête exacte définie par la constante `PRODUITS_ENTETES` dans `Code.gs` (source de vérité — si les deux divergent, c'est le Sheet qui pilote). `accroche` = courte phrase affichée sous le titre sur la fiche produit. `points` = liste à puces (un point par ligne) affichée sous la description. Colonne `images` = URLs séparées par `\|`, la première sert de visuel de couverture. Catalogue complet, éditable depuis `admin.html` (ou à la main). |
-| `Textes` | cle, fr, en | Dictionnaire i18n FR/EN + titres des bannières, éditable depuis l'onglet Textes de `admin.html`. Créé automatiquement au premier enregistrement si absent. |
+| `commandes` | date, name, email, phone, address, items_summary, subtotal, lang, statut, suivi, items_json, stock_decremented | Remplie automatiquement. Le statut suit `STATUTS_COMMANDE` (voir `functions/api.js`) ; chaque changement de statut envoie un e-mail auto au client dans sa langue. |
+| `interets_stock` | date, email, product, lang | Inscriptions "prévenez-moi du retour en stock". |
+| `stock` | id, qty | Éditable depuis `admin.html`. Une ligne par produit suivi. |
+| `produits` | `id, cat, name, name_en, tag, tag_en, accroche, accroche_en, cards, cardsDetail, cardsDetail_en, format, format_en, weight, weight_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, points, points_en, images, inStock, hero, sort_order, comingSoon` | Catalogue complet, éditable depuis `admin.html`. `accroche` = courte phrase sous le titre. `cardsDetail` = détail de composition affiché après le nombre de cartes dans l'encart mis en avant. `points` = liste à puces (un point par ligne) sous la description. `images` = URLs séparées par `\|`, la première sert de couverture. |
+| `textes` | cle, fr, en | Dictionnaire i18n FR/EN + titres des bannières, éditable depuis l'onglet Textes de `admin.html`. |
+| `rate_limit` | key, count, expires_at | Anti-bruteforce sur la connexion admin, usage interne. |
 
 ---
 

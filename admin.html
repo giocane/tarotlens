@@ -337,6 +337,8 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             <p class="admin-help">Ces informations s'affichent dans l'encart orange mis en avant sur la fiche produit du site.</p>
             <div class="admin-form-grid">
                 <div class="admin-form-group"><label>Nombre de cartes</label><input class="admin-field" id="f_cards" type="number" min="0"></div>
+                <div class="admin-form-group"><label>Détail des cartes (FR)</label><input class="admin-field" id="f_cardsDetail" placeholder="ex. 1 carte de présentation, 78 cartes de tarots et 7 cartes alternatives"></div>
+                <div class="admin-form-group"><label>Détail des cartes (EN)</label><input class="admin-field" id="f_cardsDetail_en"></div>
                 <div class="admin-form-group"><label>Format (FR)</label>
                     <select class="admin-field" id="f_format_select">
                         <option value="Standard 70×120mm">Standard (70×120 mm)</option>
@@ -534,6 +536,15 @@ function switchTab(name) {
 }
 
 const CHANGELOG = [
+    {
+        version: 'v3.9', date: '13/09/2026', titre: 'Fiches produit mieux structurées',
+        items: [
+            'Formulaire produit réorganisé : les infos qui alimentent l\'encart orange mis en avant sont regroupées sous "Infos produits (mise en avant)"',
+            'Nouveau champ "Accroche" : courte phrase affichée sous le titre sur la fiche produit',
+            'Nouveau champ "Points clés" : liste à puces (un point par ligne) affichée sous la description, pour ne plus tout entasser dans un seul pavé de texte',
+            'Nouveau champ "Détail des cartes" : complète le nombre de cartes par une description de la composition du jeu dans l\'encart mis en avant',
+        ],
+    },
     {
         version: 'v3.8', date: '12/09/2026', titre: 'Frais de port, facture PDF à la demande & tableau repensé',
         items: [
@@ -1310,7 +1321,7 @@ let imagesEnEdition = [];
 let formulaireModifie = false;
 document.getElementById('produitForm').addEventListener('input', () => { formulaireModifie = true; });
 
-const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'accroche', 'accroche_en', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph', 'points', 'points_en'];
+const CHAMPS_TEXTE = ['name', 'name_en', 'tag', 'tag_en', 'accroche', 'accroche_en', 'cardsDetail', 'cardsDetail_en', 'format_en', 'weight', 'weight_en', 'delivery', 'delivery_en', 'glyph', 'points', 'points_en'];
 const FORMATS_PRESETS = ['Standard 70×120mm', 'Poker 63×89mm'];
 
 function appliquerFormatDansForm(format) {
@@ -1345,7 +1356,7 @@ function wrapDescSelection(textareaId, marker) {
 }
 
 function produitVide() {
-    return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', accroche: '', accroche_en: '', cards: null,
+    return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', accroche: '', accroche_en: '', cards: null, cardsDetail: '', cardsDetail_en: '',
         format: '', format_en: '', weight: '', weight_en: '', delivery: '', delivery_en: '',
         price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', points: '', points_en: '', images: [], inStock: true, hero: false, comingSoon: false };
 }

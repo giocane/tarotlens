@@ -470,8 +470,9 @@ function openProductModal(id) {
     modalPoints.innerHTML = points.map(pt => `<li>${formatDesc(pt)}</li>`).join('');
     modalPoints.style.display = points.length ? '' : 'none';
 
+    const cardsDetail = pick(p, 'cardsDetail');
     const specs = [
-        p.cards ? `${p.cards} ${t('unit_cards')}` : null,
+        p.cards ? `${p.cards} ${t('unit_cards')}${cardsDetail ? ' : ' + cardsDetail : ''}` : null,
         pick(p, 'format')   || null,
         pick(p, 'weight')   || null,
         pick(p, 'delivery') || null,
