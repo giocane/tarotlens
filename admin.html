@@ -79,6 +79,8 @@
         .admin-modal-title { font-family: var(--font-display); font-size: 26px; color: var(--orange); text-transform: uppercase; margin-bottom: 20px; }
         .admin-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .admin-form-grid.full { grid-template-columns: 1fr; }
+        .admin-form-cols { display: flex; gap: 14px; align-items: flex-start; }
+        .admin-form-cols > .admin-form-col { flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
         .admin-form-group { display: flex; flex-direction: column; gap: 5px; }
         .admin-form-group label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; opacity: .7; }
         .admin-form-group textarea.admin-field { min-height: 90px; resize: vertical; font-family: inherit; }
@@ -129,6 +131,7 @@
 
         @media (max-width: 600px) {
             .admin-form-grid { grid-template-columns: 1fr; }
+            .admin-form-cols { flex-direction: column; }
             .admin-modal-panel { padding: 22px; }
         }
     </style>
@@ -315,78 +318,97 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
         <button class="modal-close" id="produitModalClose" aria-label="Fermer" type="button">&times;</button>
         <h2 class="admin-modal-title" id="produitModalTitle">Produit</h2>
         <form id="produitForm">
-            <div class="admin-form-grid">
-                <div class="admin-form-group"><label>Nom (FR)</label><input class="admin-field" id="f_name" required></div>
-                <div class="admin-form-group"><label>Nom (EN) — vide = identique au FR</label><input class="admin-field" id="f_name_en"></div>
-                <div class="admin-form-group"><label>Catégorie</label>
-                    <select class="admin-field" id="f_cat">
-                        <option value="deck">Deck</option>
-                        <option value="accessory">Accessoire</option>
-                        <option value="bundle">Bundle</option>
-                    </select>
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Nom (FR)</label><input class="admin-field" id="f_name" required></div>
+                    <div class="admin-form-group"><label>Catégorie</label>
+                        <select class="admin-field" id="f_cat">
+                            <option value="deck">Deck</option>
+                            <option value="accessory">Accessoire</option>
+                            <option value="bundle">Bundle</option>
+                        </select>
+                    </div>
+                    <div class="admin-form-group"><label>Prix (€)</label><input class="admin-field" id="f_price" type="number" min="0" step="0.01" required></div>
+                    <div class="admin-form-group"><label>Étiquette / tag (FR)</label><input class="admin-field" id="f_tag"></div>
+                    <div class="admin-form-group"><label>Accroche (FR)</label><input class="admin-field" id="f_accroche" placeholder="Phrase courte affichée sous le titre"></div>
+                    <div class="admin-form-group"><label>Symbole (glyphe)</label><input class="admin-field" id="f_glyph" maxlength="4"></div>
                 </div>
-                <div class="admin-form-group"><label>Prix (€)</label><input class="admin-field" id="f_price" type="number" min="0" step="0.01" required></div>
-                <div class="admin-form-group"><label>Étiquette / tag (FR)</label><input class="admin-field" id="f_tag"></div>
-                <div class="admin-form-group"><label>Étiquette / tag (EN)</label><input class="admin-field" id="f_tag_en"></div>
-                <div class="admin-form-group"><label>Accroche (FR)</label><input class="admin-field" id="f_accroche" placeholder="Phrase courte affichée sous le titre"></div>
-                <div class="admin-form-group"><label>Accroche (EN)</label><input class="admin-field" id="f_accroche_en"></div>
-                <div class="admin-form-group"><label>Symbole (glyphe)</label><input class="admin-field" id="f_glyph" maxlength="4"></div>
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Nom (EN) — vide = identique au FR</label><input class="admin-field" id="f_name_en"></div>
+                    <div class="admin-form-group"><label>Étiquette / tag (EN)</label><input class="admin-field" id="f_tag_en"></div>
+                    <div class="admin-form-group"><label>Accroche (EN)</label><input class="admin-field" id="f_accroche_en"></div>
+                </div>
             </div>
 
             <p class="admin-section-label">Infos produits (mise en avant)</p>
             <p class="admin-help">Ces informations s'affichent dans l'encart orange mis en avant sur la fiche produit du site.</p>
-            <div class="admin-form-grid">
-                <div class="admin-form-group"><label>Nombre de cartes</label><input class="admin-field" id="f_cards" type="number" min="0"></div>
-                <div class="admin-form-group"><label>Détail des cartes (FR)</label><input class="admin-field" id="f_cardsDetail" placeholder="ex. 1 carte de présentation, 78 cartes de tarots et 7 cartes alternatives"></div>
-                <div class="admin-form-group"><label>Détail des cartes (EN)</label><input class="admin-field" id="f_cardsDetail_en"></div>
-                <div class="admin-form-group"><label>Format (FR)</label>
-                    <select class="admin-field" id="f_format_select">
-                        <option value="Standard 70×120mm">Standard (70×120 mm)</option>
-                        <option value="Poker 63×89mm">Poker (63×89 mm)</option>
-                        <option value="autre">Autre</option>
-                    </select>
-                    <input class="admin-field" id="f_format_autre" placeholder="Format personnalisé" hidden style="margin-top:6px">
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Nombre de cartes</label><input class="admin-field" id="f_cards" type="number" min="0"></div>
+                    <div class="admin-form-group"><label>Détail des cartes (FR)</label><input class="admin-field" id="f_cardsDetail" placeholder="ex. 1 carte de présentation, 78 cartes de tarots et 7 cartes alternatives"></div>
+                    <div class="admin-form-group"><label>Format (FR)</label>
+                        <select class="admin-field" id="f_format_select">
+                            <option value="Standard 70×120mm">Standard (70×120 mm)</option>
+                            <option value="Poker 63×89mm">Poker (63×89 mm)</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                        <input class="admin-field" id="f_format_autre" placeholder="Format personnalisé" hidden style="margin-top:6px">
+                    </div>
+                    <div class="admin-form-group"><label>Poids / finition (FR)</label><input class="admin-field" id="f_weight"></div>
+                    <div class="admin-form-group"><label>Livraison (FR)</label><input class="admin-field" id="f_delivery"></div>
                 </div>
-                <div class="admin-form-group"><label>Format (EN)</label><input class="admin-field" id="f_format_en"></div>
-                <div class="admin-form-group"><label>Poids / finition (FR)</label><input class="admin-field" id="f_weight"></div>
-                <div class="admin-form-group"><label>Poids / finition (EN)</label><input class="admin-field" id="f_weight_en"></div>
-                <div class="admin-form-group"><label>Livraison (FR)</label><input class="admin-field" id="f_delivery"></div>
-                <div class="admin-form-group"><label>Livraison (EN)</label><input class="admin-field" id="f_delivery_en"></div>
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Détail des cartes (EN)</label><input class="admin-field" id="f_cardsDetail_en"></div>
+                    <div class="admin-form-group"><label>Format (EN)</label><input class="admin-field" id="f_format_en"></div>
+                    <div class="admin-form-group"><label>Poids / finition (EN)</label><input class="admin-field" id="f_weight_en"></div>
+                    <div class="admin-form-group"><label>Livraison (EN)</label><input class="admin-field" id="f_delivery_en"></div>
+                </div>
+            </div>
+
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group">
+                        <label>Description (FR)</label>
+                        <div class="desc-toolbar">
+                            <button type="button" title="Gras" onclick="wrapDescSelection('f_desc', '**')">B</button>
+                            <button type="button" title="Italique" onclick="wrapDescSelection('f_desc', '*')">I</button>
+                        </div>
+                        <textarea class="admin-field" id="f_desc"></textarea>
+                        <p class="admin-help">Sélectionnez du texte puis cliquez sur B/I (ou tapez directement **gras** / *italique*).</p>
+                    </div>
+                </div>
+                <div class="admin-form-col">
+                    <div class="admin-form-group">
+                        <label>Description (EN)</label>
+                        <div class="desc-toolbar">
+                            <button type="button" title="Gras" onclick="wrapDescSelection('f_desc_en', '**')">B</button>
+                            <button type="button" title="Italique" onclick="wrapDescSelection('f_desc_en', '*')">I</button>
+                        </div>
+                        <textarea class="admin-field" id="f_desc_en"></textarea>
+                    </div>
+                </div>
             </div>
 
             <div class="admin-form-grid full">
-                <div class="admin-form-group">
-                    <label>Description (FR)</label>
-                    <div class="desc-toolbar">
-                        <button type="button" title="Gras" onclick="wrapDescSelection('f_desc', '**')">B</button>
-                        <button type="button" title="Italique" onclick="wrapDescSelection('f_desc', '*')">I</button>
-                    </div>
-                    <textarea class="admin-field" id="f_desc"></textarea>
-                    <p class="admin-help">Sélectionnez du texte puis cliquez sur B/I (ou tapez directement **gras** / *italique*).</p>
-                </div>
-                <div class="admin-form-group">
-                    <label>Description (EN)</label>
-                    <div class="desc-toolbar">
-                        <button type="button" title="Gras" onclick="wrapDescSelection('f_desc_en', '**')">B</button>
-                        <button type="button" title="Italique" onclick="wrapDescSelection('f_desc_en', '*')">I</button>
-                    </div>
-                    <textarea class="admin-field" id="f_desc_en"></textarea>
-                </div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_comingSoon"> Bientôt disponible (produit pas encore lancé — visuel flouté automatiquement, ajout au panier désactivé, formulaire "prévenez-moi" affiché à la place)</label>
             </div>
 
-            <div class="admin-form-grid full">
-                <div class="admin-form-group">
-                    <label>Points clés (FR)</label>
-                    <textarea class="admin-field" id="f_points" placeholder="Un point par ligne, ex. :&#10;Livré dans un pochon avec des goodies&#10;Livret d'accompagnement au format PDF"></textarea>
-                    <p class="admin-help">Un point par ligne : affiché en liste à puces sur la fiche produit, sous la description.</p>
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group">
+                        <label>Points clés (FR)</label>
+                        <textarea class="admin-field" id="f_points" placeholder="Un point par ligne, ex. :&#10;Livré dans un pochon avec des goodies&#10;Livret d'accompagnement au format PDF"></textarea>
+                        <p class="admin-help">Un point par ligne : affiché en liste à puces sur la fiche produit, sous la description.</p>
+                    </div>
                 </div>
-                <div class="admin-form-group">
-                    <label>Points clés (EN)</label>
-                    <textarea class="admin-field" id="f_points_en"></textarea>
+                <div class="admin-form-col">
+                    <div class="admin-form-group">
+                        <label>Points clés (EN)</label>
+                        <textarea class="admin-field" id="f_points_en"></textarea>
+                    </div>
                 </div>
             </div>
 
