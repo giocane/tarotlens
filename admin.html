@@ -212,7 +212,11 @@
                 <button type="button" class="btn btn-ghost sm" id="refreshCommandesBtn">Actualiser</button>
                 <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
                 <button type="button" class="btn btn-ghost sm" id="exportXlsxBtn">Exporter en XLSX</button>
-                <button type="button" class="btn btn-ghost sm" id="exportMonRegistreBtn" title="Commandes payées et non annulées, au format import de Mon registre">Exporter vers Mon registre</button>
+                <select class="admin-field" id="modeExportRegistre" style="width:auto" title="Mode de calcul du montant exporté vers Mon registre">
+                    <option value="net">Mon registre — encaissement net (hors annulées, port inclus)</option>
+                    <option value="dashboard">Mon registre — comme le CA réel du tableau de bord (annulées incluses, port exclu)</option>
+                </select>
+                <button type="button" class="btn btn-ghost sm" id="exportMonRegistreBtn">Exporter vers Mon registre</button>
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
@@ -1111,15 +1115,33 @@ document.getElementById('exportXlsxBtn').addEventListener('click', () => {
 
 // Format d'import de "Mon registre" (livre de recettes auto-entrepreneur, giocane.app) :
 // { ecritures: [{ date: "AAAA-MM-JJ", designation, montant: nombre, reglement }, ...] }
-// Ne sont exportées que les commandes réellement encaissées (paye === true, statut
-// atteint au moins "Paiement validé") et non annulées -- Mon registre est un livre de
-// recettes, pas un suivi de commandes : une commande non payée n'y a pas sa place.
+// Mon registre est un livre de recettes, pas un suivi de commandes : une commande non
+// payee n'y a pas sa place. Deux definitions possibles de "commande payee", au choix
+// via le select #modeExportRegistre (memorise en localStorage) :
+//   - "net"       : exclut les commandes annulees meme si payees au prealable, et
+//                   compte subtotal + frais_port (encaissement reellement recu).
+//                   Recommande pour un livre de recettes fiscal.
+//   - "dashboard" : reproduit exactement le calcul du "CA reel" affiche sur le
+//                   tableau de bord (voir plus haut : STATUTS_ENCAISSES / caReel) --
+//                   inclut les commandes payees puis annulees, ne compte que subtotal.
+const MODE_EXPORT_REGISTRE_KEY = 'tarotlens_mode_export_registre';
+const modeExportRegistreSelect = document.getElementById('modeExportRegistre');
+modeExportRegistreSelect.value = localStorage.getItem(MODE_EXPORT_REGISTRE_KEY) || 'net';
+modeExportRegistreSelect.addEventListener('change', () => {
+    localStorage.setItem(MODE_EXPORT_REGISTRE_KEY, modeExportRegistreSelect.value);
+});
+
 document.getElementById('exportMonRegistreBtn').addEventListener('click', () => {
-    const encaissees = commandesCache.filter(c => c.paye && c.statut !== 'Annulée');
+    const STATUTS_ENCAISSES_EXPORT = ['Paiement validé', 'En préparation', 'Expédié'];
+    const mode = modeExportRegistreSelect.value;
+    const encaissees = mode === 'dashboard'
+        ? commandesCache.filter(c => c.paye || STATUTS_ENCAISSES_EXPORT.includes(c.statut))
+        : commandesCache.filter(c => c.paye && c.statut !== 'Annulée');
     if (!encaissees.length) { toast('Aucune commande encaissée à exporter.', true); return; }
     const ecritures = encaissees.map(c => {
-        const port = parseFloat(c.frais_port) || 0;
-        const montant = (parseFloat(c.subtotal) || 0) + port;
+        const montant = mode === 'dashboard'
+            ? (parseFloat(c.subtotal) || 0)
+            : (parseFloat(c.subtotal) || 0) + (parseFloat(c.frais_port) || 0);
         return {
             date: String(c.date).slice(0, 10),
             designation: ('TarotLens — ' + (c.items || 'Commande')).slice(0, 140),
@@ -1127,14 +1149,14 @@ document.getElementById('exportMonRegistreBtn').addEventListener('click', () => 
             reglement: 'Autre'
         };
     });
-    const sauvegarde = { source: 'TarotLens', exporteLe: new Date().toISOString(), ecritures };
+    const sauvegarde = { source: 'TarotLens', mode, exporteLe: new Date().toISOString(), ecritures };
     const blob = new Blob([JSON.stringify(sauvegarde, null, 2)], { type: 'application/json;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'tarotlens-vers-mon-registre.json';
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    toast(ecritures.length + ' commande(s) encaissée(s) exportée(s). Mode de règlement à vérifier manuellement dans Mon registre (non suivi côté TarotLens).');
+    toast(ecritures.length + ' commande(s) exportée(s) (mode "' + (mode === 'dashboard' ? 'CA réel tableau de bord' : 'encaissement net') + '"). Mode de règlement à vérifier manuellement dans Mon registre (non suivi côté TarotLens).');
 });
 
 
