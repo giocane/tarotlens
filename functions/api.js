@@ -734,11 +734,17 @@ async function handleOrderFlow(data, env) {
         return { ok: true };
     }
 
-    const indisponibles = await articlesIndisponibles(env.DB, data.items || []);
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (!items.length || !String(data.name || '').trim() || !String(data.email || '').trim()
+        || !String(data.phone || '').trim() || !String(data.address || '').trim()) {
+        return { ok: false, error: 'invalide' };
+    }
+
+    const indisponibles = await articlesIndisponibles(env.DB, items);
     if (indisponibles.length) return { ok: false, error: 'stock', items: indisponibles };
 
-    const itemsSummary = (data.items || []).map(it => `${it.name} x${it.qty}`).join(', ');
-    const itemsJson = JSON.stringify((data.items || []).map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price })));
+    const itemsSummary = items.map(it => `${it.name} x${it.qty}`).join(', ');
+    const itemsJson = JSON.stringify(items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price })));
     await env.DB.prepare(`INSERT INTO commandes (date, name, email, phone, address, items_summary, subtotal, lang, statut, suivi, items_json, stock_decremented)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Commande reçue', '', ?, 0)`)
         .bind(new Date().toISOString(), data.name || '', data.email || '', data.phone || '', data.address || '',
