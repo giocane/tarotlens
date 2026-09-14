@@ -212,6 +212,7 @@
                 <button type="button" class="btn btn-ghost sm" id="refreshCommandesBtn">Actualiser</button>
                 <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
                 <button type="button" class="btn btn-ghost sm" id="exportXlsxBtn">Exporter en XLSX</button>
+                <button type="button" class="btn btn-ghost sm" id="exportMonRegistreBtn" title="Commandes payées et non annulées, au format import de Mon registre">Exporter vers Mon registre</button>
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
@@ -1106,6 +1107,34 @@ document.getElementById('exportXlsxBtn').addEventListener('click', () => {
     const classeur = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(classeur, feuille, 'Commandes');
     XLSX.writeFile(classeur, 'tarotlens-commandes.xlsx');
+});
+
+// Format d'import de "Mon registre" (livre de recettes auto-entrepreneur, giocane.app) :
+// { ecritures: [{ date: "AAAA-MM-JJ", designation, montant: nombre, reglement }, ...] }
+// Ne sont exportées que les commandes réellement encaissées (paye === true, statut
+// atteint au moins "Paiement validé") et non annulées -- Mon registre est un livre de
+// recettes, pas un suivi de commandes : une commande non payée n'y a pas sa place.
+document.getElementById('exportMonRegistreBtn').addEventListener('click', () => {
+    const encaissees = commandesCache.filter(c => c.paye && c.statut !== 'Annulée');
+    if (!encaissees.length) { toast('Aucune commande encaissée à exporter.', true); return; }
+    const ecritures = encaissees.map(c => {
+        const port = parseFloat(c.frais_port) || 0;
+        const montant = (parseFloat(c.subtotal) || 0) + port;
+        return {
+            date: String(c.date).slice(0, 10),
+            designation: ('TarotLens — ' + (c.items || 'Commande')).slice(0, 140),
+            montant: Math.round(montant * 100) / 100,
+            reglement: 'Autre'
+        };
+    });
+    const sauvegarde = { source: 'TarotLens', exporteLe: new Date().toISOString(), ecritures };
+    const blob = new Blob([JSON.stringify(sauvegarde, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'tarotlens-vers-mon-registre.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(ecritures.length + ' commande(s) encaissée(s) exportée(s). Mode de règlement à vérifier manuellement dans Mon registre (non suivi côté TarotLens).');
 });
 
 
