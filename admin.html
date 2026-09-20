@@ -566,6 +566,12 @@ function switchTab(name) {
 
 const CHANGELOG = [
     {
+        version: 'v3.10', date: '20/09/2026', titre: 'Quantités vendues détaillées',
+        items: [
+            'Le tableau de bord distingue désormais, pour chaque produit, la quantité commandée (tous statuts hors annulée) de la quantité au paiement validé',
+        ],
+    },
+    {
         version: 'v3.9', date: '13/09/2026', titre: 'Fiches produit mieux structurées',
         items: [
             'Formulaire produit réorganisé : les infos qui alimentent l\'encart orange mis en avant sont regroupées sous "Infos produits (mise en avant)"',
@@ -749,34 +755,44 @@ function limiteDatePeriode(periode) {
     return null;
 }
 
-const STATUTS_VENDU = ['Paiement validé', 'En préparation', 'Expédié'];
+const STATUTS_COMMANDEE = ['Commande reçue', 'Paiement validé', 'En préparation', 'Expédié'];
+const STATUTS_PAYEE = ['Paiement validé', 'En préparation', 'Expédié'];
 
 function renderVentesParProduit() {
     const limite = limiteDatePeriode(periodeVentes);
     const commandesPeriode = dashboardCommandesCache.filter(c => {
-        if (!STATUTS_VENDU.includes(c.statut)) return false;
+        if (!STATUTS_COMMANDEE.includes(c.statut)) return false;
         if (!limite) return true;
         const d = new Date(c.date);
         return !isNaN(d) && d >= limite;
     });
 
-    const ventesParId = {};
+    const commandeesParId = {};
+    const payeesParId = {};
     commandesPeriode.forEach(c => {
         let items;
         try { items = JSON.parse(c.items_json || '[]'); } catch { items = []; }
         items.forEach(it => {
             if (!it || it.id == null) return;
-            ventesParId[it.id] = (ventesParId[it.id] || 0) + (Number(it.qty) || 0);
+            const qty = Number(it.qty) || 0;
+            commandeesParId[it.id] = (commandeesParId[it.id] || 0) + qty;
+            if (STATUTS_PAYEE.includes(c.statut)) {
+                payeesParId[it.id] = (payeesParId[it.id] || 0) + qty;
+            }
         });
     });
     const produitsParId = {};
     dashboardProduitsCache.forEach(p => { produitsParId[p.id] = p; });
-    const ventes = Object.keys(ventesParId)
-        .map(id => ({ name: (produitsParId[id] && produitsParId[id].name) || `Produit #${id}`, qty: ventesParId[id] }))
-        .sort((a, b) => b.qty - a.qty);
+    const ventes = Object.keys(commandeesParId)
+        .map(id => ({
+            name: (produitsParId[id] && produitsParId[id].name) || `Produit #${id}`,
+            commandee: commandeesParId[id],
+            payee: payeesParId[id] || 0,
+        }))
+        .sort((a, b) => b.commandee - a.commandee);
     const elVentes = document.getElementById('dashboardVentes');
     elVentes.innerHTML = ventes.length ? ventes.map(v => `
-        <div class="admin-alert-row"><span>${escapeHTML(v.name)}</span><span>${v.qty} vendu(s)</span></div>`).join('')
+        <div class="admin-alert-row"><span>${escapeHTML(v.name)}</span><span>${v.commandee} commandée(s) · ${v.payee} paiement validé</span></div>`).join('')
         : '<p class="admin-alert-empty">Aucune vente sur cette période.</p>';
 }
 document.querySelectorAll('.admin-periode-btn').forEach(b => b.addEventListener('click', () => {
