@@ -243,6 +243,9 @@ function estTermine(p) {
 
 function formatDateFin(s) {
     const [y, m, d] = s.split('-');
+    if (document.documentElement.lang === 'en') {
+        return new Date(Date.UTC(+y, +m - 1, +d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    }
     return `${d}/${m}/${y}`;
 }
 
