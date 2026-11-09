@@ -4,8 +4,42 @@ function jsonResponse(data) {
     });
 }
 
+function lireOptions(brut) {
+    let parsed = null;
+    try { parsed = JSON.parse(brut || 'null'); } catch { parsed = null; }
+    const choix = parsed && Array.isArray(parsed.choix) ? parsed.choix : [];
+    return {
+        cta: (parsed && parsed.cta) || null,
+        cta_en: (parsed && parsed.cta_en) || null,
+        choix: choix.map(o => ({
+            label: String(o.label || ''),
+            label_en: o.label_en ? String(o.label_en) : null,
+            price: Number(o.price) || 0,
+            oldPrice: o.oldPrice ? Number(o.oldPrice) : null,
+            ids: Array.isArray(o.ids) ? o.ids.map(Number).filter(n => n > 0) : [],
+            desc: o.desc ? String(o.desc) : null,
+            desc_en: o.desc_en ? String(o.desc_en) : null,
+        })).filter(o => o.label),
+    };
+}
+
+function optionsVersJson(p) {
+    const choix = (Array.isArray(p.options) ? p.options : []).map(o => ({
+        label: String(o.label || '').trim(),
+        label_en: o.label_en ? String(o.label_en).trim() : null,
+        price: Number(o.price) || 0,
+        oldPrice: o.oldPrice ? Number(o.oldPrice) : null,
+        ids: Array.isArray(o.ids) ? o.ids.map(Number).filter(n => n > 0) : [],
+        desc: o.desc ? String(o.desc) : null,
+        desc_en: o.desc_en ? String(o.desc_en) : null,
+    })).filter(o => o.label);
+    if (!choix.length) return null;
+    return JSON.stringify({ cta: p.optionsCta || null, cta_en: p.optionsCta_en || null, choix });
+}
+
 function produitFromRow(row) {
     const images = String(row.images || '').split('|').map(s => s.trim()).filter(Boolean);
+    const opts = lireOptions(row.options);
     return {
         id: Number(row.id),
         cat: row.cat || '',
@@ -39,11 +73,16 @@ function produitFromRow(row) {
         inStock: !!row.inStock,
         hero: !!row.hero,
         comingSoon: !!row.comingSoon,
+        options: opts.choix,
+        optionsCta: opts.cta,
+        optionsCta_en: opts.cta_en,
     };
 }
 
 function categoriesDuGroupe(cat) {
-    return cat === 'accessory' ? ['accessory'] : ['deck', 'bundle'];
+    if (cat === 'accessory') return ['accessory'];
+    if (cat === 'variante') return ['variante'];
+    return ['deck', 'bundle'];
 }
 
 async function actionProduitsPublic(db) {
@@ -123,17 +162,22 @@ function produitVersLigne(p) {
         inStock: p.inStock !== false ? 1 : 0,
         hero: p.hero === true ? 1 : 0,
         comingSoon: p.comingSoon === true ? 1 : 0,
+        options: optionsVersJson(p),
     };
 }
 
 async function adminSaveProduit(db, p) {
     const l = produitVersLigne(p);
     if (p.id) {
+        if (p.options === undefined) {
+            const ancien = await db.prepare('SELECT options FROM produits WHERE id = ?').bind(p.id).first();
+            l.options = ancien ? ancien.options : null;
+        }
         await db.prepare(`UPDATE produits SET cat=?, name=?, name_en=?, tag=?, tag_en=?, accroche=?, accroche_en=?, cards=?, cardsDetail=?, cardsDetail_en=?, format=?, format_en=?,
             weight=?, weight_en=?, finition=?, finition_en=?, delivery=?, delivery_en=?, price=?, badge=?, glyph=?, grad=?, desc=?, desc_en=?, points=?, points_en=?,
-            images=?, inStock=?, hero=?, comingSoon=? WHERE id=?`)
+            images=?, inStock=?, hero=?, comingSoon=?, options=? WHERE id=?`)
             .bind(l.cat, l.name, l.name_en, l.tag, l.tag_en, l.accroche, l.accroche_en, l.cards, l.cardsDetail, l.cardsDetail_en, l.format, l.format_en, l.weight, l.weight_en,
-                l.finition, l.finition_en, l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, p.id)
+                l.finition, l.finition_en, l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, l.options, p.id)
             .run();
         const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(p.id).first();
         return produitFromRow(row);
@@ -141,10 +185,10 @@ async function adminSaveProduit(db, p) {
     const groupe = categoriesDuGroupe(l.cat);
     const maxRow = await db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM produits WHERE cat IN (${groupe.map(() => '?').join(',')})`).bind(...groupe).first();
     const { meta } = await db.prepare(`INSERT INTO produits (cat, name, name_en, tag, tag_en, accroche, accroche_en, cards, cardsDetail, cardsDetail_en, format, format_en,
-            weight, weight_en, finition, finition_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, points, points_en, images, inStock, hero, comingSoon, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            weight, weight_en, finition, finition_en, delivery, delivery_en, price, badge, glyph, grad, desc, desc_en, points, points_en, images, inStock, hero, comingSoon, options, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(l.cat, l.name, l.name_en, l.tag, l.tag_en, l.accroche, l.accroche_en, l.cards, l.cardsDetail, l.cardsDetail_en, l.format, l.format_en, l.weight, l.weight_en,
-            l.finition, l.finition_en, l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, (maxRow.m || 0) + 1)
+            l.finition, l.finition_en, l.delivery, l.delivery_en, l.price, l.badge, l.glyph, l.grad, l.desc, l.desc_en, l.points, l.points_en, l.images, l.inStock, l.hero, l.comingSoon, l.options, (maxRow.m || 0) + 1)
         .run();
     const row = await db.prepare('SELECT * FROM produits WHERE id = ?').bind(meta.last_row_id).first();
     return produitFromRow(row);
@@ -283,7 +327,10 @@ async function decrementerStockCommande(db, itemsJson) {
     if (!Array.isArray(items) || !items.length) return;
     for (const it of items) {
         if (!it || it.id == null || !it.qty) continue;
-        await db.prepare('UPDATE stock SET qty = qty - ? WHERE id = ?').bind(Number(it.qty), Number(it.id)).run();
+        const ids = Array.isArray(it.ids) && it.ids.length ? it.ids : [it.id];
+        for (const id of ids) {
+            await db.prepare('UPDATE stock SET qty = qty - ? WHERE id = ?').bind(Number(it.qty), Number(id)).run();
+        }
     }
 }
 
@@ -540,6 +587,34 @@ function concatBytes(chunks) {
 
 const PDF_ASCII = new TextEncoder();
 
+function largeurTexte(str) {
+    let largeur = 0;
+    for (const ch of String(str)) {
+        if (ch === ' ') largeur += 2.8;
+        else if (/[A-Z]/.test(ch)) largeur += 6.9;
+        else if (ch === 'm' || ch === 'w') largeur += 7.8;
+        else if (/[il.,;:'|!]/.test(ch)) largeur += 2.6;
+        else largeur += 5.1;
+    }
+    return largeur;
+}
+
+function decouperDesignation(nom, largeurMax) {
+    const lignes = [];
+    let courante = '';
+    String(nom).split(' ').forEach(mot => {
+        const essai = courante ? `${courante} ${mot}` : mot;
+        if (courante && largeurTexte(essai) > largeurMax) {
+            lignes.push(courante);
+            courante = mot;
+        } else {
+            courante = essai;
+        }
+    });
+    if (courante) lignes.push(courante);
+    return lignes.length ? lignes : [''];
+}
+
 function genererFacturePDF({ numero, date, client, lignes, totalTTC }) {
     const ops = [];
     const text = (str, x, y, { font = 'F1', size = 10 } = {}) => {
@@ -576,10 +651,15 @@ function genererFacturePDF({ numero, date, client, lignes, totalTTC }) {
     y -= 22;
 
     lignes.forEach(l => {
-        text(l.nom, left + 6, y);
+        const parties = decouperDesignation(l.nom, 280);
+        text(parties[0], left + 6, y);
         text(String(l.qte), 350, y);
         text(`${l.pu.toFixed(2)} €`, 410, y);
         text(`${(l.pu * l.qte).toFixed(2)} €`, 480, y);
+        for (let i = 1; i < parties.length; i++) {
+            y -= 12;
+            text(parties[i], left + 6, y);
+        }
         y -= 18;
     });
 
@@ -702,24 +782,43 @@ async function sendContactEmail(env, data) {
     });
 }
 
-async function articlesIndisponibles(db, items) {
+function composantsArticle(produitParId, it) {
+    const id = Number(it.id);
+    const produit = produitParId[id];
+    if (!produit || it.opt == null) return [id];
+    const choix = lireOptions(produit.options).choix;
+    const option = choix[Number(it.opt)];
+    if (!option) return null;
+    return option.ids.length ? option.ids : [id];
+}
+
+function composantIndisponible(produitParId, stockParId, id) {
+    const qtyStock = stockParId[id];
+    const produit = produitParId[id];
+    return (produit && produit.comingSoon)
+        || (typeof qtyStock === 'number' ? qtyStock <= 0 : !(produit && produit.inStock));
+}
+
+async function analyserArticles(db, items) {
     const { results: stockRows } = await db.prepare('SELECT id, qty FROM stock').all();
     const stockParId = {};
     stockRows.forEach(r => { stockParId[r.id] = r.qty; });
-    const { results: produitRows } = await db.prepare('SELECT id, inStock, comingSoon FROM produits').all();
+    const { results: produitRows } = await db.prepare('SELECT id, inStock, comingSoon, options FROM produits').all();
     const produitParId = {};
     produitRows.forEach(r => { produitParId[r.id] = r; });
 
     const indisponibles = [];
+    const invalides = [];
+    const composants = [];
     for (const it of (items || [])) {
         const id = Number(it.id);
-        if (!id) continue;
-        const qtyStock = stockParId[id];
-        const out = (produitParId[id] && produitParId[id].comingSoon)
-            || (typeof qtyStock === 'number' ? qtyStock <= 0 : !(produitParId[id] && produitParId[id].inStock));
-        if (out) indisponibles.push(it.name || `#${id}`);
+        if (!id) { composants.push(null); continue; }
+        const ids = composantsArticle(produitParId, it);
+        if (!ids) { invalides.push(it.name || `#${id}`); composants.push(null); continue; }
+        composants.push(ids);
+        if (ids.some(c => composantIndisponible(produitParId, stockParId, c))) indisponibles.push(it.name || `#${id}`);
     }
-    return indisponibles;
+    return { indisponibles, invalides, composants };
 }
 
 async function handleOrderFlow(data, env) {
@@ -740,11 +839,16 @@ async function handleOrderFlow(data, env) {
         return { ok: false, error: 'invalide' };
     }
 
-    const indisponibles = await articlesIndisponibles(env.DB, items);
+    const { indisponibles, invalides, composants } = await analyserArticles(env.DB, items);
+    if (invalides.length) return { ok: false, error: 'invalide' };
     if (indisponibles.length) return { ok: false, error: 'stock', items: indisponibles };
 
     const itemsSummary = items.map(it => `${it.name} x${it.qty}`).join(', ');
-    const itemsJson = JSON.stringify(items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price })));
+    const itemsJson = JSON.stringify(items.map((it, i) => {
+        const ligne = { id: it.id, name: it.name, qty: it.qty, price: it.price };
+        if (it.opt != null) { ligne.opt = Number(it.opt); ligne.ids = composants[i]; }
+        return ligne;
+    }));
     await env.DB.prepare(`INSERT INTO commandes (date, name, email, phone, address, items_summary, subtotal, lang, statut, suivi, items_json, stock_decremented)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Commande reçue', '', ?, 0)`)
         .bind(new Date().toISOString(), data.name || '', data.email || '', data.phone || '', data.address || '',

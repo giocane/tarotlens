@@ -40,7 +40,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=12" />
+    <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
 
@@ -116,6 +116,11 @@
             <p class="modal-desc" id="modalDesc"></p>
             <ul class="modal-points" id="modalPoints"></ul>
             <p class="modal-specs" id="modalSpecs"></p>
+            <div class="modal-options" id="modalOptions" hidden>
+                <p class="modal-options-title" id="modalOptionsTitle"></p>
+                <div class="modal-options-list" id="modalOptionsList" role="radiogroup"></div>
+                <p class="modal-option-desc" id="modalOptionDesc" hidden></p>
+            </div>
             <button class="btn btn-magenta" id="modalAddBtn" data-i18n="btn_addToCart">AJOUTER AU PANIER</button>
             <div id="modalNotify"></div>
         </div>
@@ -135,9 +140,9 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="i18n.js?v=13"></script>
+<script src="i18n.js?v=14"></script>
 <script src="data.js?v=2"></script>
-<script src="cart.js?v=7"></script>
+<script src="cart.js?v=8"></script>
 <script src="products.js?v=2"></script>
 <script>
 function escapeHTML(s) {
@@ -190,7 +195,7 @@ function renderHero(products) {
     const container = document.getElementById('heroContainer');
     if (!container || !products) return;
     const { pick, t } = window.TarotLensI18n;
-    const featured = products.filter(p => p.hero);
+    const featured = products.filter(p => p.hero && p.cat !== 'variante');
 
     container.innerHTML = featured.map((p, i) => {
         const media = (p.images || []).find(src => HERO_MEDIA_VIDEO_RE.test(src)) || p.img;
@@ -219,16 +224,35 @@ function renderHero(products) {
 
 const toast = document.getElementById('toast');
 let toastTimer;
-function addToCartById(id) {
+const SEUIL_STOCK_FAIBLE = 5;
+
+function optionsDe(p) { return Array.isArray(p.options) ? p.options : []; }
+
+function formatPrix(n) {
+    return Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ',');
+}
+
+function prixOptionHTML(o) {
+    return o.oldPrice > o.price
+        ? `<s class="opt-old-price">${formatPrix(o.oldPrice)} €</s> <strong>${formatPrix(o.price)} €</strong>`
+        : `<strong>${formatPrix(o.price)} €</strong>`;
+}
+
+function addToCartById(id, optIdx) {
     const p = window.PRODUCTS.find(x => x.id === id);
     if (!p) return;
     const { pick, t } = window.TarotLensI18n;
     const displayName = pick(p, 'name');
-    window.ArcanaCart.add({ id: p.id, name: displayName, price: p.price, glyph: p.glyph, grad: p.grad, img: p.img, meta: pick(p, 'tag') });
+    const option = optionsDe(p).length ? optionsDe(p)[optIdx] : null;
+    if (optionsDe(p).length && !option) return;
+    const nomAffiche = option ? `${displayName} — ${pick(option, 'label')}` : displayName;
+    window.ArcanaCart.add(option
+        ? { key: `p${p.id}-o${optIdx}`, id: p.id, opt: optIdx, optLabel: option.label, optLabel_en: option.label_en || '', name: displayName, price: option.price, oldPrice: option.oldPrice, glyph: p.glyph, grad: p.grad, img: p.img, meta: pick(p, 'tag') }
+        : { id: p.id, name: displayName, price: p.price, glyph: p.glyph, grad: p.grad, img: p.img, meta: pick(p, 'tag') });
     document.querySelectorAll('.nav-badge').forEach(b =>
         b.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: 300 })
     );
-    toast.textContent = t('toast_added').replace('{name}', displayName);
+    toast.textContent = t('toast_added').replace('{name}', nomAffiche);
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
@@ -275,11 +299,31 @@ function wireNotifyForm(container, product) {
     });
 }
 
-function getAvailability(p) {
+function disponibiliteSimple(p) {
     if (p.comingSoon) return { tracked: false, qty: null, out: true };
     const q = window.ArcanaStock.qty(p.id);
     if (q !== null) return { tracked: true, qty: q, out: q <= 0 };
     return { tracked: false, qty: null, out: p.inStock === false };
+}
+
+function getOptionAvailability(p, o) {
+    const ids = o.ids && o.ids.length ? o.ids : [p.id];
+    const dispos = ids.map(id => {
+        const composant = window.PRODUCTS.find(x => x.id === id);
+        return composant ? disponibiliteSimple(composant) : { tracked: false, qty: null, out: true };
+    });
+    const quantites = dispos.filter(d => d.tracked).map(d => d.qty);
+    return {
+        tracked: quantites.length > 0,
+        qty: quantites.length ? Math.min(...quantites) : null,
+        out: p.comingSoon === true || dispos.some(d => d.out),
+    };
+}
+
+function getAvailability(p) {
+    const opts = optionsDe(p);
+    if (!opts.length || p.comingSoon) return disponibiliteSimple(p);
+    return { tracked: false, qty: null, out: opts.every(o => getOptionAvailability(p, o).out) };
 }
 
 let stockChecked = false;
@@ -291,7 +335,7 @@ function renderStockStates() {
         const actions = card.querySelector('.prod-card-actions');
         if (!p) return;
         const avail = getAvailability(p);
-        const lowStock = avail.tracked && !avail.out && avail.qty <= 3;
+        const lowStock = avail.tracked && !avail.out && avail.qty <= SEUIL_STOCK_FAIBLE;
         if (!avail.out && !lowStock) {
             actions.querySelector('[data-action="add"]').disabled = false;
             return;
@@ -328,29 +372,38 @@ function renderProducts(products) {
     const accessoiresGrid = document.querySelector('#accessoires .products-grid');
     if (!decksGrid || !accessoiresGrid || !products) return;
 
+    const prixCarte = p => optionsDe(p).length
+        ? t('price_from').replace('{p}', formatPrix(Math.min(...optionsDe(p).map(o => o.price))))
+        : `${p.price} €`;
+    const boutonCarte = p => optionsDe(p).length ? (pick({ cta: p.optionsCta, cta_en: p.optionsCta_en }, 'cta') || t('btn_chooseOption')) : t('btn_addToCart');
+
     const cardHTML = p => `
         <div class="prod-card${p.comingSoon ? ' coming-soon' : ''}" data-id="${p.id}">
             <div class="prod-card-head">
                 <p class="prod-card-name">${escapeHTML(pick(p, 'name'))}</p>
-                <span class="prod-card-price">${p.price} €</span>
+                <span class="prod-card-price">${escapeHTML(prixCarte(p))}</span>
             </div>
             <div class="prod-card-media">
                 ${p.badge === 'new' ? `<span class="prod-card-badge-new">${escapeHTML(t('badge_new'))}</span>` : ''}
                 ${p.img && !/\.(mp4|mov)$/i.test(p.img) ? `<img src="${escapeHTML(p.img)}" alt="${escapeHTML(pick(p, 'name'))}" loading="lazy">` : `<span class="prod-card-media-glyph">${escapeHTML(p.glyph || '')}</span>`}
             </div>
             <div class="prod-card-actions">
-                <button type="button" class="btn btn-magenta sm" data-action="add" disabled>${t('btn_addToCart')}</button>
+                <button type="button" class="btn btn-magenta sm" data-action="add" disabled>${escapeHTML(boutonCarte(p))}</button>
                 <button type="button" class="btn btn-ghost sm" data-action="learn">${t('btn_learnMore')}</button>
             </div>
         </div>`;
 
-    decksGrid.innerHTML = products.filter(p => p.cat !== 'accessory').map(cardHTML).join('');
+    decksGrid.innerHTML = products.filter(p => p.cat !== 'accessory' && p.cat !== 'variante').map(cardHTML).join('');
     accessoiresGrid.innerHTML = products.filter(p => p.cat === 'accessory').map(cardHTML).join('');
 
     [decksGrid, accessoiresGrid].forEach(grid => {
         grid.querySelectorAll('.prod-card').forEach(card => {
             const id = +card.dataset.id;
-            card.querySelector('[data-action="add"]').addEventListener('click', () => addToCartById(id));
+            const produit = products.find(x => x.id === id);
+            card.querySelector('[data-action="add"]').addEventListener('click', () => {
+                if (produit && optionsDe(produit).length) openProductModal(id);
+                else addToCartById(id);
+            });
             card.querySelector('[data-action="learn"]').addEventListener('click', () => openProductModal(id));
         });
     });
@@ -399,9 +452,47 @@ const modalSpecs = document.getElementById('modalSpecs');
 const modalAddBtn = document.getElementById('modalAddBtn');
 const modalNotify = document.getElementById('modalNotify');
 const modalClose = document.getElementById('modalClose');
+const modalOptions = document.getElementById('modalOptions');
+const modalOptionsTitle = document.getElementById('modalOptionsTitle');
+const modalOptionsList = document.getElementById('modalOptionsList');
+const modalOptionDesc = document.getElementById('modalOptionDesc');
 
 let modalImages = [];
 let modalImageIndex = 0;
+let modalOptionIndex = 0;
+
+function majOptionSelectionnee(p) {
+    const { pick } = window.TarotLensI18n;
+    modalOptionsList.querySelectorAll('.opt-choice').forEach((el, i) => el.classList.toggle('selected', i === modalOptionIndex));
+    const option = optionsDe(p)[modalOptionIndex];
+    const desc = option ? pick(option, 'desc') : '';
+    modalOptionDesc.innerHTML = desc ? formatDesc(desc) : '';
+    modalOptionDesc.hidden = !desc;
+}
+
+function renderModalOptions(p) {
+    const { pick, t } = window.TarotLensI18n;
+    const opts = optionsDe(p);
+    modalOptions.hidden = !opts.length;
+    if (!opts.length) return;
+    modalOptionsTitle.textContent = t('modal_optionsTitle');
+    modalOptionsList.innerHTML = opts.map((o, i) => {
+        const dispo = stockChecked ? getOptionAvailability(p, o) : { out: false, tracked: false, qty: null };
+        const faible = dispo.tracked && !dispo.out && dispo.qty <= SEUIL_STOCK_FAIBLE;
+        const note = dispo.out ? t('opt_outOfStock') : (faible ? t('stock_lowBadge').replace('{n}', dispo.qty) : '');
+        return `
+        <label class="opt-choice${dispo.out ? ' out' : ''}">
+            <input type="radio" name="modalOption" value="${i}"${i === modalOptionIndex ? ' checked' : ''}${dispo.out ? ' disabled' : ''}>
+            <span class="opt-choice-label">${escapeHTML(pick(o, 'label'))}${note ? `<small class="opt-choice-note">${escapeHTML(note)}</small>` : ''}</span>
+            <span class="opt-choice-price">${prixOptionHTML(o)}</span>
+        </label>`;
+    }).join('');
+    modalOptionsList.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+        modalOptionIndex = +inp.value;
+        majOptionSelectionnee(p);
+    }));
+    majOptionSelectionnee(p);
+}
 
 function renderModalSlide() {
     modalMedia.querySelectorAll('.modal-slide').forEach((el, i) => {
@@ -479,6 +570,14 @@ function openProductModal(id) {
         pick(p, 'delivery') || null,
     ].filter(Boolean);
     modalSpecs.textContent = specs.length ? specs.join('\n') : t('modal_descTodo');
+    modalSpecs.style.display = !specs.length && optionsDe(p).length ? 'none' : '';
+
+    const opts = optionsDe(p);
+    if (opts.length) {
+        const premiere = opts.findIndex(o => !stockChecked || !getOptionAvailability(p, o).out);
+        modalOptionIndex = premiere >= 0 ? premiere : 0;
+    }
+    renderModalOptions(p);
 
     if (!stockChecked) {
         modalAddBtn.style.display = '';
@@ -494,10 +593,11 @@ function openProductModal(id) {
         } else {
             modalAddBtn.style.display = '';
             modalAddBtn.disabled = false;
-            modalNotify.innerHTML = avail.tracked
-                ? `<p class="stock-qty-line">${t('stock_available').replace('{n}', avail.qty)}</p>`
+            const faible = !opts.length && avail.tracked && avail.qty <= SEUIL_STOCK_FAIBLE;
+            modalNotify.innerHTML = faible
+                ? `<span class="stock-badge low">${escapeHTML(t('stock_lowBadge').replace('{n}', avail.qty))}</span>`
                 : '';
-            modalAddBtn.onclick = () => { addToCartById(id); closeProductModal(); };
+            modalAddBtn.onclick = () => { addToCartById(id, opts.length ? modalOptionIndex : undefined); closeProductModal(); };
         }
     }
     productModal.classList.add('show');

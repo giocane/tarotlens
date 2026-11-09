@@ -99,6 +99,16 @@
         .admin-icon-btn { background: none; border: 0; font-size: 16px; opacity: .5; cursor: pointer; padding: 4px 8px; }
         .admin-icon-btn:hover { opacity: 1; color: #c0392b; }
         .admin-images-actions { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+        .admin-option-row { border: 2px solid rgba(26,22,20,.1); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+        .admin-option-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .admin-option-comps { display: flex; flex-wrap: wrap; gap: 4px 14px; max-height: 130px; overflow-y: auto; padding: 8px 10px; border: 1px solid rgba(26,22,20,.12); border-radius: 10px; }
+        .admin-option-comps .admin-checkbox-row { font-size: 12px; }
+        .admin-prep { background: var(--white); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 16px; }
+        .admin-prep-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+        .admin-prep-titre { font-family: var(--font-display); font-size: 16px; color: var(--magenta); text-transform: uppercase; }
+        .admin-prep-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid rgba(26,22,20,.08); font-size: 14px; }
+        .admin-prep-row:last-child { border-bottom: 0; }
+        .admin-prep-qty { font-weight: 700; color: var(--orange); white-space: nowrap; }
         .admin-form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; gap: 10px; flex-wrap: wrap; }
         .admin-help { font-size: 12px; opacity: .55; margin-top: -2px; margin-bottom: 10px; }
 
@@ -218,6 +228,15 @@
                 </select>
                 <button type="button" class="btn btn-ghost sm" id="exportMonRegistreBtn">Exporter vers Mon registre</button>
             </div>
+            <div class="admin-prep" id="prepPanel">
+                <div class="admin-prep-head">
+                    <span class="admin-prep-titre">À préparer</span>
+                    <span class="admin-muted" id="prepResume"></span>
+                    <label class="admin-checkbox-row" style="margin-left:auto"><input type="checkbox" id="prepInclurePrepa"> Inclure les commandes « En préparation »</label>
+                </div>
+                <p class="admin-muted" style="margin:0 0 8px">Quantité de chaque jeu à emballer, d'après les commandes au statut « Paiement validé ».</p>
+                <div id="prepListe"></div>
+            </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead>
@@ -331,6 +350,7 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                             <option value="deck">Deck</option>
                             <option value="accessory">Accessoire</option>
                             <option value="bundle">Bundle</option>
+                            <option value="variante">Variante (stock séparé, non affichée sur le site)</option>
                         </select>
                     </div>
                     <div class="admin-form-group"><label>Prix (€)</label><input class="admin-field" id="f_price" type="number" min="0" step="0.01" required></div>
@@ -417,6 +437,21 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                         <textarea class="admin-field" id="f_points_en"></textarea>
                     </div>
                 </div>
+            </div>
+
+            <p class="admin-section-label">Options de vente (choix multiple)</p>
+            <p class="admin-help">Facultatif. Avec des options, le client en choisit une avant d'ajouter au panier ; la carte affiche « dès … € » (prix de l'option la moins chère) et le prix du produit ci-dessus est recalé automatiquement. Pour chaque option : son prix, un éventuel prix barré, et les produits dont le stock baisse à la commande (vide = ce produit lui-même). Pour suivre un stock séparé (ex. second choix), crée un produit de catégorie « Variante » et coche-le dans l'option.</p>
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Texte du bouton sur la carte (FR)</label><input class="admin-field" id="f_optionsCta" placeholder="ex. JE COMPOSE MON DUO →"></div>
+                </div>
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Texte du bouton sur la carte (EN)</label><input class="admin-field" id="f_optionsCta_en"></div>
+                </div>
+            </div>
+            <div id="optionsEditeur"></div>
+            <div class="admin-images-actions">
+                <button type="button" class="btn btn-ghost sm" id="ajouterOptionBtn">Ajouter une option</button>
             </div>
 
             <p class="admin-section-label">Photos &amp; vidéos</p>
@@ -565,6 +600,17 @@ function switchTab(name) {
 }
 
 const CHANGELOG = [
+    {
+        version: 'v3.11', date: '09/11/2026', titre: 'Options de vente, préparation des commandes & stock discret',
+        items: [
+            'Produits à choix multiple : un même produit peut proposer plusieurs options à des prix différents, avec prix barré facultatif (utilisé pour le Double Trouble Bundle et le Too Much Lenormand Perfectly Imperfect)',
+            'Le stock d\'une option se déduit des produits qui la composent (ex. un duo retire un Oracle et un tarot du stock) ; une option dont un composant est en rupture est grisée',
+            'Nouvelle catégorie « Variante » : un produit au stock séparé (ex. second choix) qui n\'apparaît pas sur le site',
+            'Tableau de bord : les quantités vendues comptent désormais chaque jeu séparément (un duo compte un Oracle et un tarot ; le second choix est distinct du Lenormand standard)',
+            'Onglet Commandes : bloc « À préparer » avec la quantité de chaque jeu à emballer pour les commandes au statut « Paiement validé » (case pour inclure « En préparation »)',
+            'Site : la quantité exacte en stock n\'est plus affichée ; seul le message « Plus que n en stock ! » apparaît, à partir de 5 exemplaires restants',
+        ],
+    },
     {
         version: 'v3.10', date: '20/09/2026', titre: 'Quantités vendues détaillées',
         items: [
@@ -775,10 +821,13 @@ function renderVentesParProduit() {
         items.forEach(it => {
             if (!it || it.id == null) return;
             const qty = Number(it.qty) || 0;
-            commandeesParId[it.id] = (commandeesParId[it.id] || 0) + qty;
-            if (STATUTS_PAYEE.includes(c.statut)) {
-                payeesParId[it.id] = (payeesParId[it.id] || 0) + qty;
-            }
+            const ids = Array.isArray(it.ids) && it.ids.length ? it.ids : [it.id];
+            ids.forEach(id => {
+                commandeesParId[id] = (commandeesParId[id] || 0) + qty;
+                if (STATUTS_PAYEE.includes(c.statut)) {
+                    payeesParId[id] = (payeesParId[id] || 0) + qty;
+                }
+            });
         });
     });
     const produitsParId = {};
@@ -870,9 +919,38 @@ async function chargerCommandes() {
     const rep = await api('adminListCommandes');
     if (!rep.ok) { el.innerHTML = `<tr><td colspan="8">Erreur : ${escapeHTML(rep.error)}</td></tr>`; return; }
     commandesCache = rep.commandes;
+    const [repProduits] = await obtenirProduitsEtStock();
+    if (repProduits.ok) produitsCache = repProduits.produits;
     majBadgeCommandes(commandesCache);
     renderCommandes();
 }
+
+function renderAPreparer() {
+    const el = document.getElementById('prepListe');
+    const statuts = document.getElementById('prepInclurePrepa').checked ? ['Paiement validé', 'En préparation'] : ['Paiement validé'];
+    const commandes = commandesCache.filter(c => statuts.includes(c.statut));
+    const quantitesParId = {};
+    commandes.forEach(c => {
+        let items;
+        try { items = JSON.parse(c.items_json || '[]'); } catch { items = []; }
+        items.forEach(it => {
+            if (!it || it.id == null) return;
+            const qty = Number(it.qty) || 0;
+            const ids = Array.isArray(it.ids) && it.ids.length ? it.ids : [it.id];
+            ids.forEach(id => { quantitesParId[id] = (quantitesParId[id] || 0) + qty; });
+        });
+    });
+    const nomsParId = {};
+    produitsCache.forEach(p => { nomsParId[p.id] = p.name; });
+    const lignes = Object.keys(quantitesParId)
+        .map(id => ({ nom: nomsParId[id] || `Produit #${id}`, qty: quantitesParId[id] }))
+        .sort((a, b) => b.qty - a.qty);
+    document.getElementById('prepResume').textContent = commandes.length ? `${commandes.length} commande(s) concernée(s)` : '';
+    el.innerHTML = lignes.length
+        ? lignes.map(l => `<div class="admin-prep-row"><span>${escapeHTML(l.nom)}</span><span class="admin-prep-qty">× ${l.qty}</span></div>`).join('')
+        : '<p class="admin-muted" style="margin:0">Rien à préparer pour le moment.</p>';
+}
+document.getElementById('prepInclurePrepa').addEventListener('change', renderAPreparer);
 
 async function enregistrerStatut(row, statut, suivi) {
     const rep = await api('adminSetStatutCommande', { row, statut, suivi: suivi || '' });
@@ -913,6 +991,7 @@ function commandesFiltreesBase() {
 }
 
 function renderCommandes() {
+    renderAPreparer();
     const el = document.getElementById('commandesBody');
     const afficherArchivees = document.getElementById('afficherArchivees').checked;
     const archivees = getArchivees();
@@ -1192,6 +1271,15 @@ async function chargerStock() {
     el.innerHTML = produitsCache.map(p => {
         const qty = stockParIdCache[p.id];
         const low = typeof qty === 'number' && qty <= 3;
+        const options = p.options || [];
+        const stockViaComposants = options.length > 0 && options.every(o => o.ids.length && !o.ids.includes(p.id));
+        if (stockViaComposants) {
+            return `
+        <tr>
+            <td>${escapeHTML(p.name)}</td>
+            <td colspan="2" class="admin-muted">Stock suivi via les produits qui composent chaque option (voir leurs lignes)</td>
+        </tr>`;
+        }
         return `
         <tr class="${low ? 'admin-row-low' : ''}">
             <td>${escapeHTML(p.name)}</td>
@@ -1352,8 +1440,8 @@ function badgeRupture(p) {
     return p.inStock === false ? ' — marqué en rupture' : '';
 }
 
-const CATEGORIE_LABELS = { deck: 'Decks', accessory: 'Accessoires' };
-function groupeAffichage(cat) { return cat === 'accessory' ? 'accessory' : 'deck'; }
+const CATEGORIE_LABELS = { deck: 'Decks', accessory: 'Accessoires', variante: 'Variantes (stock séparé, non affichées sur le site)' };
+function groupeAffichage(cat) { return cat === 'accessory' ? 'accessory' : (cat === 'variante' ? 'variante' : 'deck'); }
 
 function renderProduitsListe() {
     const el = document.getElementById('produitsListe');
@@ -1373,7 +1461,7 @@ function renderProduitsListe() {
                 <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
                 <div class="admin-prod-info">
                     <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}${p.badge === 'new' ? ' 🆕' : ''}</strong>
-                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
+                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.options && p.options.length ? ` — ${p.options.length} option${p.options.length > 1 ? 's' : ''}` : ''}${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
                 </div>
                 <label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
                     <input type="checkbox" data-hero-toggle="${p.id}" ${p.hero ? 'checked' : ''}> Hero
@@ -1451,14 +1539,91 @@ function wrapDescSelection(textareaId, marker) {
 function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', accroche: '', accroche_en: '', cards: null, cardsDetail: '', cardsDetail_en: '',
         format: '', format_en: '', weight: '', weight_en: '', finition: '', finition_en: '', delivery: '', delivery_en: '',
-        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', points: '', points_en: '', images: [], inStock: true, hero: false, comingSoon: false };
+        price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', points: '', points_en: '', images: [], inStock: true, hero: false, comingSoon: false,
+        options: [], optionsCta: '', optionsCta_en: '' };
 }
+
+let optionsEnEdition = [];
+
+function optionVide() {
+    return { label: '', label_en: '', price: '', oldPrice: '', ids: [], desc: '', desc_en: '' };
+}
+
+function renderOptionsEditeur() {
+    const el = document.getElementById('optionsEditeur');
+    if (!optionsEnEdition.length) { el.innerHTML = '<p class="admin-muted">Aucune option : le produit est vendu tel quel.</p>'; return; }
+    const composants = produitsCache.filter(x => !produitEnEdition || x.id !== produitEnEdition.id);
+    el.innerHTML = optionsEnEdition.map((o, i) => `
+        <div class="admin-option-row" data-opt="${i}">
+            <div class="admin-option-head">
+                <strong>Option ${i + 1}</strong>
+                <button type="button" class="admin-icon-btn" data-remove-opt="${i}" aria-label="Retirer cette option">✕</button>
+            </div>
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Libellé (FR)</label><input class="admin-field" data-opt-field="label" value="${escapeHTML(o.label)}" placeholder="ex. Oracle + Has Been Tarot"></div>
+                    <div class="admin-form-group"><label>Description de l'option (FR) — facultatif</label><textarea class="admin-field" data-opt-field="desc">${escapeHTML(o.desc)}</textarea></div>
+                </div>
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Libellé (EN)</label><input class="admin-field" data-opt-field="label_en" value="${escapeHTML(o.label_en)}"></div>
+                    <div class="admin-form-group"><label>Description de l'option (EN)</label><textarea class="admin-field" data-opt-field="desc_en">${escapeHTML(o.desc_en)}</textarea></div>
+                </div>
+            </div>
+            <div class="admin-form-cols">
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Prix (€)</label><input class="admin-field" type="number" min="0" step="0.01" data-opt-field="price" value="${escapeHTML(o.price)}"></div>
+                </div>
+                <div class="admin-form-col">
+                    <div class="admin-form-group"><label>Prix barré (€) — facultatif</label><input class="admin-field" type="number" min="0" step="0.01" data-opt-field="oldPrice" value="${escapeHTML(o.oldPrice)}"></div>
+                </div>
+            </div>
+            <div class="admin-form-group">
+                <label>Produits dont le stock baisse à la commande (aucun coché = ce produit)</label>
+                <div class="admin-option-comps">
+                    ${composants.map(x => `<label class="admin-checkbox-row"><input type="checkbox" data-opt-comp="${x.id}"${o.ids.includes(x.id) ? ' checked' : ''}> ${escapeHTML(x.name)}</label>`).join('') || '<span class="admin-muted">Aucun autre produit.</span>'}
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+document.getElementById('optionsEditeur').addEventListener('input', (e) => {
+    const ligne = e.target.closest('.admin-option-row');
+    if (!ligne) return;
+    const o = optionsEnEdition[+ligne.dataset.opt];
+    if (!o) return;
+    if (e.target.dataset.optField) o[e.target.dataset.optField] = e.target.value;
+    if (e.target.dataset.optComp) {
+        const id = +e.target.dataset.optComp;
+        o.ids = e.target.checked ? [...new Set([...o.ids, id])] : o.ids.filter(x => x !== id);
+    }
+});
+
+document.getElementById('optionsEditeur').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove-opt]');
+    if (!btn) return;
+    optionsEnEdition.splice(+btn.dataset.removeOpt, 1);
+    formulaireModifie = true;
+    renderOptionsEditeur();
+});
+
+document.getElementById('ajouterOptionBtn').addEventListener('click', () => {
+    optionsEnEdition.push(optionVide());
+    formulaireModifie = true;
+    renderOptionsEditeur();
+});
 
 function ouvrirFormProduit(id) {
     const p = id ? produitsCache.find(x => x.id === id) : produitVide();
     if (!p) return;
     produitEnEdition = { ...p };
     imagesEnEdition = [...(p.images || [])];
+    optionsEnEdition = (p.options || []).map(o => ({
+        label: o.label || '', label_en: o.label_en || '', price: o.price ?? '', oldPrice: o.oldPrice ?? '',
+        ids: [...(o.ids || [])], desc: o.desc || '', desc_en: o.desc_en || '',
+    }));
+    document.getElementById('f_optionsCta').value = p.optionsCta || '';
+    document.getElementById('f_optionsCta_en').value = p.optionsCta_en || '';
+    renderOptionsEditeur();
 
     CHAMPS_TEXTE.forEach(c => { document.getElementById('f_' + c).value = p[c] || ''; });
     appliquerFormatDansForm(p.format || '');
@@ -1560,6 +1725,17 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.comingSoon = document.getElementById('f_comingSoon').checked;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
+    const optionsIncompletes = optionsEnEdition.filter(o => o.label.trim() && !(Number(o.price) > 0));
+    if (optionsIncompletes.length) { toast(`L'option « ${optionsIncompletes[0].label} » n'a pas de prix.`, true); return; }
+    p.options = optionsEnEdition.filter(o => o.label.trim()).map(o => ({
+        label: o.label.trim(), label_en: o.label_en.trim() || null, price: Number(o.price),
+        oldPrice: Number(o.oldPrice) > 0 ? Number(o.oldPrice) : null,
+        ids: o.ids, desc: o.desc.trim() || null, desc_en: o.desc_en.trim() || null,
+    }));
+    p.optionsCta = document.getElementById('f_optionsCta').value.trim();
+    p.optionsCta_en = document.getElementById('f_optionsCta_en').value.trim();
+    if (p.options.length) p.price = Math.min(...p.options.map(o => o.price));
+
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true;
     const rep = await api('adminSaveProduit', { produit: p });
@@ -1598,7 +1774,7 @@ const TEXTES_DEFAUTS_FR = {
     stock_outOfStock: "RUPTURE DE STOCK", stock_notifyPlaceholder: "Votre e-mail", stock_notifySubmit: "PRÉVENEZ-MOI",
     stock_notifySending: "ENVOI…", stock_notifyThanks: "Merci, on vous prévient dès le retour en stock !",
     stock_notifyError: "Une erreur est survenue, réessayez plus tard.", stock_lowBadge: "Plus que {n} en stock !",
-    stock_available: "{n} disponible(s)",
+    price_from: "dès {p} €", btn_chooseOption: "CHOISIR MON OPTION", modal_optionsTitle: "Choisis ton option", opt_outOfStock: "Rupture de stock",
     cart_title: "MON PANIER", cart_emptyTitle: "Votre panier est vide", cart_emptyText: "Découvrez nos decks et accessoires.",
     cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande",
     cart_summaryTitle: "Récapitulatif", cart_subtotal: "Sous-total", cart_priceTBC: "Prix à confirmer",
@@ -1656,7 +1832,7 @@ const TEXTES_DEFAUTS_EN = {
     stock_outOfStock: "OUT OF STOCK", stock_notifyPlaceholder: "Your email", stock_notifySubmit: "NOTIFY ME",
     stock_notifySending: "SENDING…", stock_notifyThanks: "Thanks, we'll let you know as soon as it's back in stock!",
     stock_notifyError: "Something went wrong, please try again later.", stock_lowBadge: "Only {n} left!",
-    stock_available: "{n} available",
+    price_from: "from {p} €", btn_chooseOption: "CHOOSE MY OPTION", modal_optionsTitle: "Choose your option", opt_outOfStock: "Out of stock",
     cart_title: "MY CART", cart_emptyTitle: "Your cart is empty", cart_emptyText: "Discover our decks and accessories.",
     cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order",
     cart_summaryTitle: "Summary", cart_subtotal: "Subtotal", cart_priceTBC: "Price to be confirmed",
@@ -1715,6 +1891,9 @@ const TEXTES_GROUPES = [
         { k: 'btn_addToCart', l: 'Bouton Ajouter au panier' }, { k: 'btn_learnMore', l: 'Bouton En savoir plus' },
         { k: 'badge_new', l: 'Pastille "Nouveauté" sur la vignette produit', hint: 'Affichée quand la case "Nouveauté" est cochée dans la fiche produit.' },
         { k: 'unit_cards', l: 'Unité « cartes »' },
+        { k: 'price_from', l: 'Prix « dès » sur la vignette (produit à options)', hint: 'Garde {p} — remplacé par le prix le plus bas' },
+        { k: 'btn_chooseOption', l: 'Bouton produit à options (si aucun texte propre)' },
+        { k: 'modal_optionsTitle', l: 'Titre du choix d\'option' },
         { k: 'toast_added', l: 'Message ajouté au panier', hint: 'Garde {name} — remplacé par le nom du produit' },
         { k: 'modal_closeAria', l: 'Fermer (accessibilité)' }, { k: 'modal_descTodo', l: 'Description manquante (texte par défaut)' },
         { k: 'modal_prevAria', l: 'Photo précédente (accessibilité)' }, { k: 'modal_nextAria', l: 'Photo suivante (accessibilité)' },
@@ -1725,7 +1904,7 @@ const TEXTES_GROUPES = [
         { k: 'stock_notifySubmit', l: 'Bouton Prévenez-moi' }, { k: 'stock_notifySending', l: 'Bouton pendant l\'envoi' },
         { k: 'stock_notifyThanks', l: 'Message de confirmation' }, { k: 'stock_notifyError', l: "Message d'erreur" },
         { k: 'stock_lowBadge', l: 'Badge stock faible', hint: 'Garde {n} — remplacé par la quantité' },
-        { k: 'stock_available', l: 'Texte quantité disponible', hint: 'Garde {n} — remplacé par la quantité' },
+        { k: 'opt_outOfStock', l: 'Option en rupture (choix multiple)' },
     ]},
     { titre: 'Panier & commande', champs: [
         { k: 'cart_title', l: 'Titre du panier' }, { k: 'cart_emptyTitle', l: 'Panier vide — titre' },

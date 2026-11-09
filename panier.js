@@ -5,6 +5,22 @@ function escapeHTML(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function nomLigne(it, product) {
+    const base = product ? pick(product, 'name') : it.name;
+    if (it.opt == null) return base;
+    const option = product && Array.isArray(product.options) ? product.options[it.opt] : null;
+    const label = option ? pick(option, 'label') : (document.documentElement.lang === 'en' && it.optLabel_en ? it.optLabel_en : it.optLabel);
+    return label ? `${base} — ${label}` : base;
+}
+
+function prixLigneHTML(it) {
+    if (!(it.price > 0)) return t('cart_preorder');
+    const actuel = (it.price * it.qty).toFixed(2).replace('.', ',') + ' €';
+    if (!(it.oldPrice > it.price)) return actuel;
+    const barre = (it.oldPrice * it.qty).toFixed(2).replace('.', ',') + ' €';
+    return `<s class="cart-old-price">${barre}</s> ${actuel}`;
+}
+
 function render() {
     const items = window.ArcanaCart.get();
 
@@ -25,7 +41,7 @@ function render() {
         <div class="cart-lines">
             ${items.map(it => {
                 const product = (window.PRODUCTS || []).find(p => p.id === it.id);
-                const name = product ? pick(product, 'name') : it.name;
+                const name = nomLigne(it, product);
                 const meta = product ? pick(product, 'tag') : it.meta;
                 return `
                 <div class="cart-line" data-key="${escapeHTML(it.key)}">
@@ -36,7 +52,7 @@ function render() {
                         <button class="cart-remove" data-remove="${escapeHTML(it.key)}">${t('cart_remove')}</button>
                     </div>
                     <div class="cart-right">
-                        <div class="cart-line-price">${it.price > 0 ? (it.price * it.qty).toFixed(2).replace('.', ',') + ' €' : t('cart_preorder')}</div>
+                        <div class="cart-line-price">${prixLigneHTML(it)}</div>
                         <div class="qty">
                             <button type="button" data-dec="${escapeHTML(it.key)}" aria-label="−">−</button>
                             <input type="number" value="${it.qty}" min="1" max="20" data-qty="${escapeHTML(it.key)}" />
@@ -139,7 +155,7 @@ async function submitOrder(e, items, subtotal) {
         address: `${address}\n${cp} ${pays}`,
         items: items.map(it => {
             const product = (window.PRODUCTS || []).find(p => p.id === it.id);
-            return { id: it.id, name: product ? pick(product, 'name') : it.name, qty: it.qty, price: it.price };
+            return { id: it.id, name: nomLigne(it, product), qty: it.qty, price: it.price, opt: it.opt ?? null };
         }),
         subtotal,
         lang: document.documentElement.lang || 'fr',
