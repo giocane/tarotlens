@@ -420,7 +420,13 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_inStock"> Produit en stock (décoché = rupture, sauf si suivi dans l'onglet Stock)</label>
                 <p class="admin-help" id="stockTrackedHint" hidden style="color:#c0392b">⚠️ Ce produit est suivi dans l'onglet <strong>Stock</strong> (quantité actuelle : <strong id="stockTrackedQty"></strong>). Cette case n'a aucun effet tant que cette quantité n'est pas changée là-bas, dans l'onglet Stock.</p>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_nouveaute"> Nouveauté (ajoute une pastille "NEW" sur la fiche produit du site)</label>
+                <label class="admin-checkbox-row"><input type="checkbox" id="f_preorder"> Précommande (ajoute une pastille « Précommande » sur la vignette et la fiche, et la rappelle dans le panier)</label>
                 <label class="admin-checkbox-row"><input type="checkbox" id="f_comingSoon"> Bientôt disponible (produit pas encore lancé — visuel flouté automatiquement, ajout au panier désactivé, formulaire "prévenez-moi" affiché à la place)</label>
+                <div class="admin-form-group">
+                    <label>Vente jusqu'au (inclus) — facultatif</label>
+                    <input class="admin-field" id="f_endsAt" type="date" style="max-width:220px">
+                    <p class="admin-help">Jusqu'à cette date (heure de Paris), une pastille « Jusqu'au … » s'affiche. Le lendemain, le produit disparaît du site et ne peut plus être commandé, même depuis un panier déjà rempli.</p>
+                </div>
             </div>
 
             <div class="admin-form-cols">
@@ -606,6 +612,8 @@ const CHANGELOG = [
             'Produits à choix multiple : un même produit peut proposer plusieurs options à des prix différents, avec prix barré facultatif (utilisé pour le Double Trouble Bundle et le Too Much Lenormand Perfectly Imperfect)',
             'Le stock d\'une option se déduit des produits qui la composent (ex. un duo retire un Oracle et un tarot du stock) ; une option dont un composant est en rupture est grisée',
             'Nouvelle catégorie « Variante » : un produit au stock séparé (ex. second choix) qui n\'apparaît pas sur le site',
+            'Case « Précommande » sur la fiche produit : pastille sur la vignette et la fiche, rappelée dans le panier',
+            'Champ « Vente jusqu\'au » : pastille « Jusqu\'au … » puis disparition automatique du produit le lendemain (aussi refusé à la commande)',
             'Tableau de bord : les quantités vendues comptent désormais chaque jeu séparément (un duo compte un Oracle et un tarot ; le second choix est distinct du Lenormand standard)',
             'Onglet Commandes : bloc « À préparer » avec la quantité de chaque jeu à emballer pour les commandes au statut « Paiement validé » (case pour inclure « En préparation »)',
             'Site : la quantité exacte en stock n\'est plus affichée ; seul le message « Plus que n en stock ! » apparaît, à partir de 5 exemplaires restants',
@@ -1461,7 +1469,7 @@ function renderProduitsListe() {
                 <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
                 <div class="admin-prod-info">
                     <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}${p.badge === 'new' ? ' 🆕' : ''}</strong>
-                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.options && p.options.length ? ` — ${p.options.length} option${p.options.length > 1 ? 's' : ''}` : ''}${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
+                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.options && p.options.length ? ` — ${p.options.length} option${p.options.length > 1 ? 's' : ''}` : ''}${p.preorder ? ' — précommande' : ''}${p.endsAt ? ` — vente jusqu'au ${p.endsAt.split('-').reverse().join('/')}${p.endsAt < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }) ? ' (terminée, masqué du site)' : ''}` : ''}${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
                 </div>
                 <label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
                     <input type="checkbox" data-hero-toggle="${p.id}" ${p.hero ? 'checked' : ''}> Hero
@@ -1540,7 +1548,7 @@ function produitVide() {
     return { id: null, cat: 'deck', name: '', name_en: '', tag: '', tag_en: '', accroche: '', accroche_en: '', cards: null, cardsDetail: '', cardsDetail_en: '',
         format: '', format_en: '', weight: '', weight_en: '', finition: '', finition_en: '', delivery: '', delivery_en: '',
         price: 0, badge: '', glyph: '✦', grad: 'g-generic', desc: '', desc_en: '', points: '', points_en: '', images: [], inStock: true, hero: false, comingSoon: false,
-        options: [], optionsCta: '', optionsCta_en: '' };
+        options: [], optionsCta: '', optionsCta_en: '', preorder: false, endsAt: '' };
 }
 
 let optionsEnEdition = [];
@@ -1635,6 +1643,8 @@ function ouvrirFormProduit(id) {
     document.getElementById('f_inStock').checked = p.inStock !== false;
     document.getElementById('f_nouveaute').checked = p.badge === 'new';
     document.getElementById('f_comingSoon').checked = p.comingSoon === true;
+    document.getElementById('f_preorder').checked = p.preorder === true;
+    document.getElementById('f_endsAt').value = p.endsAt || '';
     const qtyTracked = stockParIdCache[p.id];
     document.getElementById('stockTrackedHint').hidden = typeof qtyTracked !== 'number';
     if (typeof qtyTracked === 'number') document.getElementById('stockTrackedQty').textContent = qtyTracked;
@@ -1723,6 +1733,8 @@ document.getElementById('produitForm').addEventListener('submit', async (e) => {
     p.inStock = document.getElementById('f_inStock').checked;
     p.badge = document.getElementById('f_nouveaute').checked ? 'new' : null;
     p.comingSoon = document.getElementById('f_comingSoon').checked;
+    p.preorder = document.getElementById('f_preorder').checked;
+    p.endsAt = document.getElementById('f_endsAt').value || null;
     p.images = imagesEnEdition.map(s => s.trim()).filter(Boolean);
 
     const optionsIncompletes = optionsEnEdition.filter(o => o.label.trim() && !(Number(o.price) > 0));
@@ -1774,6 +1786,7 @@ const TEXTES_DEFAUTS_FR = {
     stock_outOfStock: "RUPTURE DE STOCK", stock_notifyPlaceholder: "Votre e-mail", stock_notifySubmit: "PRÉVENEZ-MOI",
     stock_notifySending: "ENVOI…", stock_notifyThanks: "Merci, on vous prévient dès le retour en stock !",
     stock_notifyError: "Une erreur est survenue, réessayez plus tard.", stock_lowBadge: "Plus que {n} en stock !",
+    badge_preorder: "Précommande", offer_untilShort: "Jusqu'au {d}",
     price_from: "dès {p} €", btn_chooseOption: "CHOISIR MON OPTION", modal_optionsTitle: "Choisis ton option", opt_outOfStock: "Rupture de stock",
     cart_title: "MON PANIER", cart_emptyTitle: "Votre panier est vide", cart_emptyText: "Découvrez nos decks et accessoires.",
     cart_emptyCta: "VOIR LES DECKS", cart_remove: "Retirer", cart_preorder: "Pré-commande",
@@ -1832,6 +1845,7 @@ const TEXTES_DEFAUTS_EN = {
     stock_outOfStock: "OUT OF STOCK", stock_notifyPlaceholder: "Your email", stock_notifySubmit: "NOTIFY ME",
     stock_notifySending: "SENDING…", stock_notifyThanks: "Thanks, we'll let you know as soon as it's back in stock!",
     stock_notifyError: "Something went wrong, please try again later.", stock_lowBadge: "Only {n} left!",
+    badge_preorder: "Pre-order", offer_untilShort: "Until {d}",
     price_from: "from {p} €", btn_chooseOption: "CHOOSE MY OPTION", modal_optionsTitle: "Choose your option", opt_outOfStock: "Out of stock",
     cart_title: "MY CART", cart_emptyTitle: "Your cart is empty", cart_emptyText: "Discover our decks and accessories.",
     cart_emptyCta: "SEE THE DECKS", cart_remove: "Remove", cart_preorder: "Pre-order",
@@ -1892,6 +1906,8 @@ const TEXTES_GROUPES = [
         { k: 'badge_new', l: 'Pastille "Nouveauté" sur la vignette produit', hint: 'Affichée quand la case "Nouveauté" est cochée dans la fiche produit.' },
         { k: 'unit_cards', l: 'Unité « cartes »' },
         { k: 'price_from', l: 'Prix « dès » sur la vignette (produit à options)', hint: 'Garde {p} — remplacé par le prix le plus bas' },
+        { k: 'badge_preorder', l: 'Pastille « Précommande »' },
+        { k: 'offer_untilShort', l: 'Pastille de fin de vente', hint: 'Garde {d} — remplacé par la date de fin' },
         { k: 'btn_chooseOption', l: 'Bouton produit à options (si aucun texte propre)' },
         { k: 'modal_optionsTitle', l: 'Titre du choix d\'option' },
         { k: 'toast_added', l: 'Message ajouté au panier', hint: 'Garde {name} — remplacé par le nom du produit' },

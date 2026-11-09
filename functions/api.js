@@ -11,6 +11,8 @@ function lireOptions(brut) {
     return {
         cta: (parsed && parsed.cta) || null,
         cta_en: (parsed && parsed.cta_en) || null,
+        endsAt: parsed && /^\d{4}-\d{2}-\d{2}$/.test(parsed.endsAt || '') ? parsed.endsAt : null,
+        preorder: !!(parsed && parsed.preorder),
         choix: choix.map(o => ({
             label: String(o.label || ''),
             label_en: o.label_en ? String(o.label_en) : null,
@@ -33,8 +35,14 @@ function optionsVersJson(p) {
         desc: o.desc ? String(o.desc) : null,
         desc_en: o.desc_en ? String(o.desc_en) : null,
     })).filter(o => o.label);
-    if (!choix.length) return null;
-    return JSON.stringify({ cta: p.optionsCta || null, cta_en: p.optionsCta_en || null, choix });
+    const endsAt = /^\d{4}-\d{2}-\d{2}$/.test(p.endsAt || '') ? p.endsAt : null;
+    const preorder = p.preorder === true;
+    if (!choix.length && !endsAt && !preorder && !p.optionsCta && !p.optionsCta_en) return null;
+    return JSON.stringify({ cta: p.optionsCta || null, cta_en: p.optionsCta_en || null, endsAt, preorder, choix });
+}
+
+function dateParis() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
 }
 
 function produitFromRow(row) {
@@ -76,6 +84,8 @@ function produitFromRow(row) {
         options: opts.choix,
         optionsCta: opts.cta,
         optionsCta_en: opts.cta_en,
+        endsAt: opts.endsAt,
+        preorder: opts.preorder,
     };
 }
 
@@ -810,13 +820,16 @@ async function analyserArticles(db, items) {
     const indisponibles = [];
     const invalides = [];
     const composants = [];
+    const aujourdhui = dateParis();
     for (const it of (items || [])) {
         const id = Number(it.id);
         if (!id) { composants.push(null); continue; }
         const ids = composantsArticle(produitParId, it);
         if (!ids) { invalides.push(it.name || `#${id}`); composants.push(null); continue; }
         composants.push(ids);
-        if (ids.some(c => composantIndisponible(produitParId, stockParId, c))) indisponibles.push(it.name || `#${id}`);
+        const finVente = produitParId[id] ? lireOptions(produitParId[id].options).endsAt : null;
+        const termine = !!finVente && aujourdhui > finVente;
+        if (termine || ids.some(c => composantIndisponible(produitParId, stockParId, c))) indisponibles.push(it.name || `#${id}`);
     }
     return { indisponibles, invalides, composants };
 }

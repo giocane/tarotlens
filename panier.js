@@ -42,7 +42,8 @@ function render() {
             ${items.map(it => {
                 const product = (window.PRODUCTS || []).find(p => p.id === it.id);
                 const name = nomLigne(it, product);
-                const meta = product ? pick(product, 'tag') : it.meta;
+                const metaBase = product ? pick(product, 'tag') : it.meta;
+                const meta = product && product.preorder ? [metaBase, t('badge_preorder')].filter(Boolean).join(' · ') : metaBase;
                 return `
                 <div class="cart-line" data-key="${escapeHTML(it.key)}">
                     <div class="cart-thumb">${it.img ? `<img src="${escapeHTML(it.img)}" alt="${escapeHTML(name)}">` : escapeHTML(it.glyph)}</div>
