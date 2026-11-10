@@ -73,6 +73,10 @@
         .admin-prod-row { display: flex; align-items: center; gap: 14px; background: var(--white); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; }
         .admin-prod-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: linear-gradient(135deg,#ddd5c0,#c8c0a8); flex-shrink: 0; }
         .admin-prod-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .admin-prod-row.archived { background: transparent; border: 1.5px dashed rgba(26,22,20,.25); }
+        .admin-prod-row.archived .admin-prod-thumb { filter: grayscale(1); opacity: .6; }
+        .admin-prod-row.archived .admin-prod-info strong { color: rgba(26,22,20,.55); }
+        .admin-archive-toggle { white-space: nowrap; margin-top: 0; }
         .admin-prod-info strong { font-family: var(--font-display); font-size: 16px; text-transform: uppercase; color: var(--ink); font-weight: normal; letter-spacing: .3px; }
 
         .admin-modal-panel { position: relative; width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; background: var(--cream); border-radius: var(--radius); box-shadow: 0 24px 60px rgba(0,0,0,.35); padding: 32px; }
@@ -248,7 +252,7 @@
         </div>
 
         <div class="admin-tab-panel" id="tab-stock">
-            <p class="admin-help">Quantité vide = produit non suivi (le site retombe sur le statut "en rupture" éditable dans l'onglet Produits). Quantité ≤ 3 mise en évidence.</p>
+            <p class="admin-help">Quantité vide = produit non suivi (le site retombe sur le statut "en rupture" éditable dans l'onglet Produits). Quantité ≤ 3 mise en évidence. Les produits archivés n'apparaissent pas ici.</p>
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead><tr><th>Produit</th><th>Quantité</th><th></th></tr></thead>
@@ -607,6 +611,14 @@ function switchTab(name) {
 
 const CHANGELOG = [
     {
+        version: 'v3.12', date: '10/11/2026', titre: 'Archivage des produits',
+        items: [
+            'Onglet Produits : case « Archiver » à côté de chaque produit. Un produit archivé disparaît du site (accueil, bannières, fiche, panier, commande) mais reste dans la liste « Archivés », d\'où une case à décocher le remet en ligne à sa place',
+            'Les produits archivés ne comptent plus dans les alertes de stock du tableau de bord, l\'onglet Stock et le digest quotidien ; leur historique de ventes est conservé',
+            'Un produit archivé qui compose encore l\'option d\'un autre produit (ex. un duo) est signalé à l\'archivage ; cette option passe en rupture',
+        ],
+    },
+    {
         version: 'v3.11', date: '09/11/2026', titre: 'Options de vente, préparation des commandes & stock discret',
         items: [
             'Produits à choix multiple : un même produit peut proposer plusieurs options à des prix différents, avec prix barré facultatif (utilisé pour le Double Trouble Bundle et le Too Much Lenormand Perfectly Imperfect)',
@@ -882,9 +894,9 @@ async function chargerDashboard() {
         <div class="admin-stat-card"><div class="admin-stat-value">${caReel.toFixed(2)} €</div><div class="admin-stat-label">CA réel (paiement validé)</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${commandes.length}</div><div class="admin-stat-label">Commandes totales</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${nouvelles}</div><div class="admin-stat-label">À traiter</div></div>
-        <div class="admin-stat-card"><div class="admin-stat-value">${produits.length}</div><div class="admin-stat-label">Produits au catalogue</div></div>`;
+        <div class="admin-stat-card"><div class="admin-stat-value">${produits.filter(p => !p.archived).length}</div><div class="admin-stat-label">Produits au catalogue</div></div>`;
 
-    const alertes = produits.filter(p => {
+    const alertes = produits.filter(p => !p.archived).filter(p => {
         const qty = stockParId[p.id];
         const tracked = typeof qty === 'number';
         return tracked ? qty <= 3 : p.inStock === false;
@@ -1274,9 +1286,10 @@ async function chargerStock() {
     produitsCache = repProduits.produits;
     if (repStock.ok) { stockParIdCache = {}; repStock.stock.forEach(s => { stockParIdCache[s.id] = s.qty; }); }
 
-    if (!produitsCache.length) { el.innerHTML = '<tr><td colspan="3">Aucun produit — remplis d\'abord l\'onglet Produits.</td></tr>'; return; }
+    const produitsActifs = produitsCache.filter(p => !p.archived);
+    if (!produitsActifs.length) { el.innerHTML = '<tr><td colspan="3">Aucun produit — remplis d\'abord l\'onglet Produits.</td></tr>'; return; }
 
-    el.innerHTML = produitsCache.map(p => {
+    el.innerHTML = produitsActifs.map(p => {
         const qty = stockParIdCache[p.id];
         const low = typeof qty === 'number' && qty <= 3;
         const options = p.options || [];
@@ -1451,34 +1464,48 @@ function badgeRupture(p) {
 const CATEGORIE_LABELS = { deck: 'Decks', accessory: 'Accessoires', variante: 'Variantes (stock séparé, non affichées sur le site)' };
 function groupeAffichage(cat) { return cat === 'accessory' ? 'accessory' : (cat === 'variante' ? 'variante' : 'deck'); }
 
+function ligneProduit(p, iLocal, total) {
+    const archive = p.archived === true;
+    const infos = `${escapeHTML(p.cat)} — ${p.price} €${p.options && p.options.length ? ` — ${p.options.length} option${p.options.length > 1 ? 's' : ''}` : ''}${p.preorder ? ' — précommande' : ''}${p.endsAt ? ` — vente jusqu'au ${p.endsAt.split('-').reverse().join('/')}${p.endsAt < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }) ? ' (terminée, masqué du site)' : ''}` : ''}`;
+    return `
+            <div class="admin-prod-row${archive ? ' archived' : ''}">
+                <span class="admin-move-btns"${archive ? ' style="visibility:hidden" aria-hidden="true"' : ''}>
+                    <button type="button" data-move="up" data-id="${p.id}" ${archive || iLocal === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+                    <button type="button" data-move="down" data-id="${p.id}" ${archive || iLocal === total - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+                </span>
+                <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
+                <div class="admin-prod-info">
+                    <strong>${escapeHTML(p.name)}${!archive && p.hero ? ' ★' : ''}${!archive && p.badge === 'new' ? ' 🆕' : ''}</strong>
+                    <span class="admin-muted">${infos}${archive ? ' — masqué du site' : `${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}`}</span>
+                </div>
+                ${archive ? '' : `<label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
+                    <input type="checkbox" data-hero-toggle="${p.id}" ${p.hero ? 'checked' : ''}> Hero
+                </label>`}
+                <label class="admin-checkbox-row admin-archive-toggle" title="${archive ? 'Décocher pour remettre ce produit sur le site' : 'Retire ce produit du site et le garde ici, en archive'}">
+                    <input type="checkbox" data-archive-toggle="${p.id}" ${archive ? 'checked' : ''}> ${archive ? 'Archivé' : 'Archiver'}
+                </label>
+                <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
+                <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
+            </div>`;
+}
+
 function renderProduitsListe() {
     const el = document.getElementById('produitsListe');
     if (!produitsCache.length) { el.innerHTML = '<p class="admin-muted">Aucun produit pour l\'instant.</p>'; return; }
 
+    const actifs = produitsCache.filter(p => !p.archived);
+    const archives = produitsCache.filter(p => p.archived);
     const groupes = [];
-    produitsCache.forEach(p => { const g = groupeAffichage(p.cat); if (!groupes.includes(g)) groupes.push(g); });
+    actifs.forEach(p => { const g = groupeAffichage(p.cat); if (!groupes.includes(g)) groupes.push(g); });
 
-    el.innerHTML = groupes.map(groupe => {
-        const items = produitsCache.filter(p => groupeAffichage(p.cat) === groupe);
-        const lignes = items.map((p, iLocal) => `
-            <div class="admin-prod-row">
-                <span class="admin-move-btns">
-                    <button type="button" data-move="up" data-id="${p.id}" ${iLocal === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
-                    <button type="button" data-move="down" data-id="${p.id}" ${iLocal === items.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
-                </span>
-                <img src="${escapeHTML(p.img)}" alt="" class="admin-prod-thumb" onerror="this.style.visibility='hidden'">
-                <div class="admin-prod-info">
-                    <strong>${escapeHTML(p.name)}${p.hero ? ' ★' : ''}${p.badge === 'new' ? ' 🆕' : ''}</strong>
-                    <span class="admin-muted">${escapeHTML(p.cat)} — ${p.price} €${p.options && p.options.length ? ` — ${p.options.length} option${p.options.length > 1 ? 's' : ''}` : ''}${p.preorder ? ' — précommande' : ''}${p.endsAt ? ` — vente jusqu'au ${p.endsAt.split('-').reverse().join('/')}${p.endsAt < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }) ? ' (terminée, masqué du site)' : ''}` : ''}${p.hero ? ' — mis en avant (hero)' : ''}${badgeRupture(p)}</span>
-                </div>
-                <label class="admin-checkbox-row" title="Afficher ce produit dans les bannières hero de l'accueil">
-                    <input type="checkbox" data-hero-toggle="${p.id}" ${p.hero ? 'checked' : ''}> Hero
-                </label>
-                <button type="button" class="btn btn-ghost sm" data-duplicate-produit="${p.id}">Dupliquer</button>
-                <button type="button" class="btn btn-ghost sm" data-edit-produit="${p.id}">Modifier</button>
-            </div>`).join('');
-        return `<p class="admin-section-label">${escapeHTML(CATEGORIE_LABELS[groupe] || groupe || 'Sans catégorie')}</p>${lignes}`;
+    const blocsActifs = groupes.map(groupe => {
+        const items = actifs.filter(p => groupeAffichage(p.cat) === groupe);
+        return `<p class="admin-section-label">${escapeHTML(CATEGORIE_LABELS[groupe] || groupe || 'Sans catégorie')}</p>${items.map((p, i) => ligneProduit(p, i, items.length)).join('')}`;
     }).join('');
+    const blocArchives = archives.length
+        ? `<p class="admin-section-label">Archivés (${archives.length}) — masqués du site, conservés ici</p>${archives.map((p, i) => ligneProduit(p, i, archives.length)).join('')}`
+        : '';
+    el.innerHTML = blocsActifs + blocArchives;
 
     el.querySelectorAll('[data-edit-produit]').forEach(b => b.addEventListener('click', () => ouvrirFormProduit(+b.dataset.editProduit)));
     el.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click', async () => {
@@ -1488,7 +1515,7 @@ function renderProduitsListe() {
     el.querySelectorAll('[data-duplicate-produit]').forEach(b => b.addEventListener('click', async () => {
         const p = produitsCache.find(x => x.id === +b.dataset.duplicateProduit);
         if (!p) return;
-        const copie = { ...p, id: null, name: p.name + ' (copie)' };
+        const copie = { ...p, id: null, name: p.name + ' (copie)', archived: false };
         const rep = await api('adminSaveProduit', { produit: copie });
         if (rep.ok) { toast('Produit dupliqué.'); chargerProduits(true); } else { toast(rep.error, true); }
     }));
@@ -1500,6 +1527,24 @@ function renderProduitsListe() {
         cb.disabled = false;
         if (rep.ok) { toast(cb.checked ? 'Ajouté au hero.' : 'Retiré du hero.'); chargerProduits(true); }
         else { cb.checked = !cb.checked; toast(rep.error, true); }
+    }));
+    el.querySelectorAll('[data-archive-toggle]').forEach(cb => cb.addEventListener('change', async () => {
+        const p = produitsCache.find(x => x.id === +cb.dataset.archiveToggle);
+        if (!p) return;
+        const archiver = cb.checked;
+        cb.disabled = true;
+        const rep = await api('adminSaveProduit', { produit: { ...p, archived: archiver } });
+        cb.disabled = false;
+        if (!rep.ok) { cb.checked = !archiver; toast(rep.error, true); return; }
+        let msg = archiver
+            ? `« ${p.name} » archivé : il n'apparaît plus sur le site.`
+            : `« ${p.name} » réactivé : il réapparaît sur le site.`;
+        if (archiver) {
+            const dependants = produitsCache.filter(x => x.id !== p.id && !x.archived && (x.options || []).some(o => (o.ids || []).includes(p.id)));
+            if (dependants.length) msg += ` Attention : il compose encore les options de « ${dependants.map(x => x.name).join(' », « ')} », qui passent en rupture.`;
+        }
+        toast(msg);
+        chargerProduits(true);
     }));
 }
 
@@ -1588,7 +1633,7 @@ function renderOptionsEditeur() {
             <div class="admin-form-group">
                 <label>Produits dont le stock baisse à la commande (aucun coché = ce produit)</label>
                 <div class="admin-option-comps">
-                    ${composants.map(x => `<label class="admin-checkbox-row"><input type="checkbox" data-opt-comp="${x.id}"${o.ids.includes(x.id) ? ' checked' : ''}> ${escapeHTML(x.name)}</label>`).join('') || '<span class="admin-muted">Aucun autre produit.</span>'}
+                    ${composants.map(x => `<label class="admin-checkbox-row"><input type="checkbox" data-opt-comp="${x.id}"${o.ids.includes(x.id) ? ' checked' : ''}> ${escapeHTML(x.name)}${x.archived ? ' (archivé)' : ''}</label>`).join('') || '<span class="admin-muted">Aucun autre produit.</span>'}
                 </div>
             </div>
         </div>`).join('');

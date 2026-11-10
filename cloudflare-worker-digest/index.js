@@ -6,9 +6,16 @@ export default {
     },
 };
 
+function estArchive(brut) {
+    try { return !!(JSON.parse(brut || 'null') || {}).archived; } catch { return false; }
+}
+
 async function envoyerDigestQuotidien(env) {
     const db = env.DB;
-    const { results: stock } = await db.prepare('SELECT * FROM stock').all();
+    const { results: stockBrut } = await db.prepare('SELECT * FROM stock').all();
+    const { results: produits } = await db.prepare('SELECT id, options FROM produits').all();
+    const archives = new Set(produits.filter(p => estArchive(p.options)).map(p => p.id));
+    const stock = stockBrut.filter(s => !archives.has(s.id));
     const epuises = stock.filter(s => s.qty <= 0);
     const faibles = stock.filter(s => s.qty > 0 && s.qty <= SEUIL_STOCK_FAIBLE);
     const { results: interets } = await db.prepare('SELECT * FROM interets_stock ORDER BY id DESC').all();

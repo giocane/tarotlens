@@ -13,6 +13,7 @@ function lireOptions(brut) {
         cta_en: (parsed && parsed.cta_en) || null,
         endsAt: parsed && /^\d{4}-\d{2}-\d{2}$/.test(parsed.endsAt || '') ? parsed.endsAt : null,
         preorder: !!(parsed && parsed.preorder),
+        archived: !!(parsed && parsed.archived),
         choix: choix.map(o => ({
             label: String(o.label || ''),
             label_en: o.label_en ? String(o.label_en) : null,
@@ -37,8 +38,9 @@ function optionsVersJson(p) {
     })).filter(o => o.label);
     const endsAt = /^\d{4}-\d{2}-\d{2}$/.test(p.endsAt || '') ? p.endsAt : null;
     const preorder = p.preorder === true;
-    if (!choix.length && !endsAt && !preorder && !p.optionsCta && !p.optionsCta_en) return null;
-    return JSON.stringify({ cta: p.optionsCta || null, cta_en: p.optionsCta_en || null, endsAt, preorder, choix });
+    const archived = p.archived === true;
+    if (!choix.length && !endsAt && !preorder && !archived && !p.optionsCta && !p.optionsCta_en) return null;
+    return JSON.stringify({ cta: p.optionsCta || null, cta_en: p.optionsCta_en || null, endsAt, preorder, archived, choix });
 }
 
 function dateParis() {
@@ -86,6 +88,7 @@ function produitFromRow(row) {
         optionsCta_en: opts.cta_en,
         endsAt: opts.endsAt,
         preorder: opts.preorder,
+        archived: opts.archived,
     };
 }
 
@@ -97,7 +100,7 @@ function categoriesDuGroupe(cat) {
 
 async function actionProduitsPublic(db) {
     const { results } = await db.prepare("SELECT * FROM produits ORDER BY (cat = 'accessory'), sort_order").all();
-    const produits = results.map(produitFromRow);
+    const produits = results.map(produitFromRow).filter(p => !p.archived);
     if (!produits.length) return { ok: false, error: 'Catalogue vide.' };
     return { ok: true, produits };
 }
@@ -209,9 +212,10 @@ async function adminDeplacerProduit(db, id, sens) {
     if (!p) throw new Error(`Produit id ${id} introuvable.`);
     const groupe = categoriesDuGroupe(p.cat);
     const placeholders = groupe.map(() => '?').join(',');
-    const voisin = sens === 'up'
-        ? await db.prepare(`SELECT id, sort_order FROM produits WHERE cat IN (${placeholders}) AND sort_order < ? ORDER BY sort_order DESC LIMIT 1`).bind(...groupe, p.sort_order).first()
-        : await db.prepare(`SELECT id, sort_order FROM produits WHERE cat IN (${placeholders}) AND sort_order > ? ORDER BY sort_order ASC LIMIT 1`).bind(...groupe, p.sort_order).first();
+    const { results } = await db.prepare(`SELECT id, sort_order, options FROM produits WHERE cat IN (${placeholders}) ORDER BY sort_order`).bind(...groupe).all();
+    const visibles = results.filter(r => r.id === p.id || !lireOptions(r.options).archived);
+    const i = visibles.findIndex(r => r.id === p.id);
+    const voisin = visibles[sens === 'up' ? i - 1 : i + 1];
     if (!voisin) return;
     await db.batch([
         db.prepare('UPDATE produits SET sort_order = ? WHERE id = ?').bind(voisin.sort_order, p.id),
@@ -805,7 +809,8 @@ function composantsArticle(produitParId, it) {
 function composantIndisponible(produitParId, stockParId, id) {
     const qtyStock = stockParId[id];
     const produit = produitParId[id];
-    return (produit && produit.comingSoon)
+    return (produit && lireOptions(produit.options).archived)
+        || (produit && produit.comingSoon)
         || (typeof qtyStock === 'number' ? qtyStock <= 0 : !(produit && produit.inStock));
 }
 
@@ -827,8 +832,9 @@ async function analyserArticles(db, items) {
         const ids = composantsArticle(produitParId, it);
         if (!ids) { invalides.push(it.name || `#${id}`); composants.push(null); continue; }
         composants.push(ids);
-        const finVente = produitParId[id] ? lireOptions(produitParId[id].options).endsAt : null;
-        const termine = !!finVente && aujourdhui > finVente;
+        const optsProduit = produitParId[id] ? lireOptions(produitParId[id].options) : null;
+        const finVente = optsProduit ? optsProduit.endsAt : null;
+        const termine = (!!optsProduit && optsProduit.archived) || (!!finVente && aujourdhui > finVente);
         if (termine || ids.some(c => composantIndisponible(produitParId, stockParId, c))) indisponibles.push(it.name || `#${id}`);
     }
     return { indisponibles, invalides, composants };
