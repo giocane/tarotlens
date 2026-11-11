@@ -115,6 +115,16 @@
         .admin-prep-qty { font-weight: 700; color: var(--orange); white-space: nowrap; }
         .admin-form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; gap: 10px; flex-wrap: wrap; }
         .admin-help { font-size: 12px; opacity: .55; margin-top: -2px; margin-bottom: 10px; }
+        .admin-cmd-ligne { display: grid; grid-template-columns: 1fr 78px 92px 32px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(26,22,20,.1); }
+        .admin-cmd-nom { font-weight: 600; font-size: 14px; line-height: 1.35; }
+        .admin-cmd-qty { width: 78px; text-align: center; }
+        .admin-cmd-total { text-align: right; font-weight: 700; white-space: nowrap; font-size: 14px; }
+        .admin-cmd-ajout { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .admin-cmd-ajout select { flex: 1; min-width: 220px; }
+        .admin-cmd-ajout input { width: 78px; }
+        .admin-cmd-ligne-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; margin-top: 18px; }
+        .admin-cmd-alerte { background: rgba(232,78,10,.1); border-left: 3px solid var(--orange); border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.5; margin: 10px 0 0; }
+        .admin-cmd-histo { font-size: 12px; line-height: 1.6; opacity: .75; padding: 8px 0; border-bottom: 1px dashed rgba(26,22,20,.15); }
 
         .admin-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 980px; font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 500; }
         .admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -337,6 +347,28 @@ TarotLens129@gmail.com · @TarotLens</textarea></div>
             <div class="admin-alert-box">
                 <div id="journalMisesAJour"></div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="commandeModal" role="dialog" aria-modal="true" aria-labelledby="commandeModalTitle">
+    <div class="admin-modal-panel" style="max-width:720px">
+        <button class="modal-close" id="commandeModalClose" aria-label="Fermer" type="button">&times;</button>
+        <h2 class="admin-modal-title" id="commandeModalTitle">Modifier la commande</h2>
+        <p class="admin-muted" id="commandeModalInfo" style="margin:-10px 0 14px"></p>
+        <div id="commandeLignes"></div>
+        <p class="admin-section-label">Ajouter un article</p>
+        <div class="admin-cmd-ajout">
+            <select class="admin-field" id="commandeAjoutSelect" aria-label="Article à ajouter"></select>
+            <input class="admin-field" id="commandeAjoutQty" type="number" min="1" max="99" value="1" aria-label="Quantité à ajouter">
+            <button type="button" class="btn btn-ghost sm" id="commandeAjoutBtn">Ajouter</button>
+        </div>
+        <div id="commandeTotaux"></div>
+        <label class="admin-checkbox-row" style="margin-top:16px"><input type="checkbox" id="commandeNotifier" checked> Prévenir le client par e-mail (récapitulatif de la commande mise à jour)</label>
+        <div id="commandeHistorique"></div>
+        <div class="admin-form-actions">
+            <button type="button" class="btn btn-ghost sm" id="commandeAnnulerBtn">Annuler</button>
+            <button type="button" class="btn btn-orange" id="commandeEnregistrerBtn">Enregistrer la commande</button>
         </div>
     </div>
 </div>
@@ -610,6 +642,16 @@ function switchTab(name) {
 }
 
 const CHANGELOG = [
+    {
+        version: 'v3.14', date: '11/11/2026', titre: 'Modifier les articles d\'une commande',
+        items: [
+            'Onglet Commandes : bouton « Modifier » sur les commandes non expédiées (reçue, paiement validé, en préparation) pour ajouter ou retirer un article, ou changer une quantité, sans annuler ni refaire la commande',
+            'Le total est recalculé (les articles déjà commandés gardent leur prix d\'origine, les nouveaux sont au prix actuel) ; le stock est ajusté automatiquement si le paiement est déjà validé',
+            'Option « Prévenir le client par e-mail » : récapitulatif de la commande mise à jour (FR/EN)',
+            'Historique des modifications conservé sur la commande (contenu et montant avant / après)',
+            'Une commande expédiée, annulée ou déjà facturée ne peut plus être modifiée',
+        ],
+    },
     {
         version: 'v3.13', date: '10/11/2026', titre: 'Stock affiché à partir de 4 pièces',
         items: [
@@ -991,6 +1033,176 @@ async function enregistrerStatut(row, statut, suivi) {
     }
 }
 
+// ---- Modifier les articles d'une commande ----
+const STATUTS_COMMANDE_MODIFIABLES = ['Commande reçue', 'Paiement validé', 'En préparation'];
+let commandeEnEdition = null;
+
+function formaterEuros(n) {
+    return (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).replace('.', ',') + ' €';
+}
+
+function peutModifierCommande(c) {
+    return STATUTS_COMMANDE_MODIFIABLES.includes(c.statut) && !c.facture_numero;
+}
+
+function choixAjoutCommande() {
+    const aujourdhui = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
+    const choix = [];
+    produitsCache
+        .filter(p => !p.archived && p.cat !== 'variante' && !p.comingSoon && !(p.endsAt && p.endsAt < aujourdhui))
+        .forEach(p => {
+            const options = p.options || [];
+            if (options.length) {
+                options.forEach((o, k) => choix.push({ valeur: `${p.id}|${k}`, id: p.id, opt: k, name: `${p.name} — ${o.label}`, price: Number(o.price) || 0 }));
+            } else {
+                choix.push({ valeur: `${p.id}|`, id: p.id, opt: null, name: p.name, price: Number(p.price) || 0 });
+            }
+        });
+    return choix;
+}
+
+function totalLignesCommande(lignes) {
+    return lignes.reduce((n, l) => n + (Number(l.price) || 0) * (Number(l.qty) || 0), 0);
+}
+
+function ouvrirModifCommande(row) {
+    const c = commandesCache.find(x => x.row === row);
+    if (!c || !peutModifierCommande(c)) return;
+    let items;
+    try { items = JSON.parse(c.items_json || '[]'); } catch { items = []; }
+    const nomsParId = {};
+    produitsCache.forEach(p => { nomsParId[p.id] = p.name; });
+    const lignes = (Array.isArray(items) ? items : []).filter(it => it && it.id != null).map(it => ({
+        id: Number(it.id), opt: it.opt == null ? null : Number(it.opt),
+        name: it.name || nomsParId[it.id] || `Produit #${it.id}`,
+        price: Number(it.price) || 0, qty: Math.max(1, Number(it.qty) || 1), nouvelle: false,
+    }));
+    let historique;
+    try { historique = JSON.parse(c.historique || '[]'); } catch { historique = []; }
+    commandeEnEdition = {
+        row, statut: c.statut, paye: !!c.paye, lignes, totalAvant: totalLignesCommande(lignes),
+        historique: Array.isArray(historique) ? historique : [],
+    };
+    document.getElementById('commandeModalInfo').textContent =
+        `${c.name || 'Client'} — ${c.date ? new Date(c.date).toLocaleDateString('fr-FR') : ''} — statut : ${c.statut}`;
+    document.getElementById('commandeAjoutSelect').innerHTML = choixAjoutCommande()
+        .map(ch => `<option value="${escapeHTML(ch.valeur)}">${escapeHTML(ch.name)} (${formaterEuros(ch.price)})</option>`).join('');
+    document.getElementById('commandeAjoutQty').value = '1';
+    document.getElementById('commandeNotifier').checked = true;
+    document.getElementById('commandeEnregistrerBtn').disabled = false;
+    renderLignesModifCommande();
+    renderHistoriqueModifCommande();
+    document.getElementById('commandeModal').classList.add('show');
+}
+
+function fermerModifCommande() {
+    document.getElementById('commandeModal').classList.remove('show');
+    commandeEnEdition = null;
+}
+
+function renderLignesModifCommande() {
+    const e = commandeEnEdition;
+    if (!e) return;
+    const el = document.getElementById('commandeLignes');
+    el.innerHTML = e.lignes.length ? e.lignes.map((l, i) => `
+        <div class="admin-cmd-ligne">
+            <div class="admin-cmd-nom">${escapeHTML(l.name)}${l.nouvelle ? ' <span class="admin-lang-badge">nouveau</span>' : ''}<br><span class="admin-muted">${formaterEuros(l.price)} l'unité</span></div>
+            <input class="admin-field admin-cmd-qty" type="number" min="1" max="99" value="${l.qty}" data-cmd-qty="${i}" aria-label="Quantité de ${escapeHTML(l.name)}">
+            <div class="admin-cmd-total" data-cmd-total="${i}">${formaterEuros(l.price * l.qty)}</div>
+            <button type="button" class="admin-icon-btn" data-cmd-retirer="${i}" aria-label="Retirer ${escapeHTML(l.name)}">✕</button>
+        </div>`).join('')
+        : '<p class="admin-muted">Plus aucun article. Ajoutes-en un ci-dessous, ou annule la commande avec le statut « Annulée ».</p>';
+    majTotauxModifCommande();
+}
+
+function majTotauxModifCommande() {
+    const e = commandeEnEdition;
+    if (!e) return;
+    const total = totalLignesCommande(e.lignes);
+    const ecart = Math.round((total - e.totalAvant) * 100) / 100;
+    const signe = ecart > 0 ? '+' : '−';
+    let html = `<div class="admin-cmd-ligne-total"><span>Total des articles</span><strong>${formaterEuros(total)}</strong></div>`;
+    if (ecart !== 0) html += `<div class="admin-muted" style="text-align:right">Avant modification : ${formaterEuros(e.totalAvant)} (${signe}${formaterEuros(Math.abs(ecart))})</div>`;
+    if (ecart !== 0 && e.statut !== 'Commande reçue') {
+        html += `<p class="admin-cmd-alerte">⚠️ Cette commande est déjà au statut « ${escapeHTML(e.statut)} » (paiement reçu) : un écart de ${signe}${formaterEuros(Math.abs(ecart))} est à régulariser avec le client.</p>`;
+    }
+    html += '<p class="admin-help" style="margin-top:10px">Les frais de port ne changent pas : ajuste-les dans le tableau si besoin.</p>';
+    if (e.paye) html += '<p class="admin-help">Le stock des articles ajoutés ou retirés sera ajusté automatiquement.</p>';
+    document.getElementById('commandeTotaux').innerHTML = html;
+    document.getElementById('commandeEnregistrerBtn').disabled = !e.lignes.length;
+    e.lignes.forEach((l, i) => {
+        const t = document.querySelector(`[data-cmd-total="${i}"]`);
+        if (t) t.textContent = formaterEuros(l.price * l.qty);
+    });
+}
+
+function renderHistoriqueModifCommande() {
+    const e = commandeEnEdition;
+    const el = document.getElementById('commandeHistorique');
+    if (!e || !e.historique.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<p class="admin-section-label">Historique des modifications</p>' + [...e.historique].reverse().map(h => {
+        const avant = h.avant || {}, apres = h.apres || {};
+        return `<div class="admin-cmd-histo"><strong>${h.date ? new Date(h.date).toLocaleString('fr-FR') : ''}</strong><br>`
+            + `Avant : ${escapeHTML(avant.articles || '')} — ${formaterEuros(avant.montant)}<br>`
+            + `Après : ${escapeHTML(apres.articles || '')} — ${formaterEuros(apres.montant)}</div>`;
+    }).join('');
+}
+
+document.getElementById('commandeLignes').addEventListener('input', (ev) => {
+    const e = commandeEnEdition;
+    const champ = ev.target.closest('[data-cmd-qty]');
+    if (!e || !champ) return;
+    const l = e.lignes[+champ.dataset.cmdQty];
+    const v = Math.floor(Number(champ.value));
+    if (l && v >= 1 && v <= 99) { l.qty = v; majTotauxModifCommande(); }
+});
+document.getElementById('commandeLignes').addEventListener('change', (ev) => {
+    if (ev.target.closest('[data-cmd-qty]')) renderLignesModifCommande();
+});
+document.getElementById('commandeLignes').addEventListener('click', (ev) => {
+    const e = commandeEnEdition;
+    const btn = ev.target.closest('[data-cmd-retirer]');
+    if (!e || !btn) return;
+    e.lignes.splice(+btn.dataset.cmdRetirer, 1);
+    renderLignesModifCommande();
+});
+document.getElementById('commandeAjoutBtn').addEventListener('click', () => {
+    const e = commandeEnEdition;
+    if (!e) return;
+    const valeur = document.getElementById('commandeAjoutSelect').value;
+    const qty = Math.floor(Number(document.getElementById('commandeAjoutQty').value));
+    if (!valeur || !(qty >= 1 && qty <= 99)) { toast('Choisis un article et une quantité entre 1 et 99.', true); return; }
+    const ch = choixAjoutCommande().find(x => x.valeur === valeur);
+    if (!ch) return;
+    const existante = e.lignes.find(l => l.id === ch.id && l.opt === ch.opt);
+    if (existante) existante.qty = Math.min(99, existante.qty + qty);
+    else e.lignes.push({ id: ch.id, opt: ch.opt, name: ch.name, price: ch.price, qty, nouvelle: true });
+    document.getElementById('commandeAjoutQty').value = '1';
+    renderLignesModifCommande();
+});
+document.getElementById('commandeEnregistrerBtn').addEventListener('click', async () => {
+    const e = commandeEnEdition;
+    if (!e || !e.lignes.length) return;
+    const btn = document.getElementById('commandeEnregistrerBtn');
+    btn.disabled = true;
+    const rep = await api('adminModifierCommande', {
+        row: e.row,
+        items: e.lignes.map(l => ({ id: l.id, opt: l.opt, qty: l.qty })),
+        notifier: document.getElementById('commandeNotifier').checked,
+    });
+    btn.disabled = false;
+    if (!rep.ok) { toast(rep.error, true); return; }
+    const i = commandesCache.findIndex(x => x.row === e.row);
+    if (i >= 0 && rep.commande) commandesCache[i] = rep.commande;
+    fermerModifCommande();
+    produitsStockTs = 0;
+    renderCommandes();
+    toast(rep.inchange ? 'Aucun changement à enregistrer.' : (rep.notifie ? 'Commande modifiée, client prévenu par e-mail.' : 'Commande modifiée.'));
+});
+document.getElementById('commandeAnnulerBtn').addEventListener('click', fermerModifCommande);
+document.getElementById('commandeModalClose').addEventListener('click', fermerModifCommande);
+document.getElementById('commandeModal').addEventListener('click', (ev) => { if (ev.target.id === 'commandeModal') fermerModifCommande(); });
+
 function commandesFiltreesBase() {
     const filtre = document.getElementById('filtreStatut').value;
     const recherche = document.getElementById('rechercheCommande').value.trim().toLowerCase();
@@ -1057,6 +1269,7 @@ function renderCommandes() {
             </td>
             <td data-label="Actions">
                 ${mailtoHref ? `<a class="btn btn-ghost sm" style="display:inline-block" href="${escapeHTML(mailtoHref)}">Contacter</a>` : ''}
+                ${peutModifierCommande(c) ? `<button type="button" class="btn btn-ghost sm" data-modifier-commande="${c.row}">Modifier</button>` : ''}
                 ${c.statut === 'Expédié' ? `<button type="button" class="btn btn-ghost sm" data-facture-commande="${c.row}">Facture PDF</button>` : ''}
                 ${estArchivee
                     ? `<button type="button" class="btn btn-ghost sm" data-unarchive-commande="${c.row}">Désarchiver</button>`
@@ -1101,6 +1314,9 @@ function renderCommandes() {
                 toast(rep.error, true);
             }
         });
+    });
+    el.querySelectorAll('[data-modifier-commande]').forEach(btn => {
+        btn.addEventListener('click', () => ouvrirModifCommande(+btn.dataset.modifierCommande));
     });
     el.querySelectorAll('[data-facture-commande]').forEach(btn => {
         btn.addEventListener('click', async () => {

@@ -245,6 +245,7 @@ function commandeFromRow(row) {
         paye: !!row.stock_decremented,
         facture_numero: row.facture_numero || '',
         frais_port: row.frais_port != null ? row.frais_port : '',
+        historique: row.historique || '[]',
     };
 }
 
@@ -348,6 +349,258 @@ async function decrementerStockCommande(db, itemsJson) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Modification d'une commande par l'admin : ajouter / retirer des articles,
+// changer les quantités. Le serveur recalcule tout (prix, total, stock).
+// ---------------------------------------------------------------------------
+
+const STATUTS_COMMANDE_MODIFIABLES = ['Commande reçue', 'Paiement validé', 'En préparation'];
+const QTE_MAX_LIGNE = 99;
+
+function cleLigneCommande(id, opt) {
+    return `${Number(id)}|${opt == null ? '' : Number(opt)}`;
+}
+
+function composantsLigne(it) {
+    return Array.isArray(it.ids) && it.ids.length ? it.ids.map(Number) : [Number(it.id)];
+}
+
+function arrondi2(n) {
+    return Math.round(n * 100) / 100;
+}
+
+// Fonction pure (aucun accès base) : calcule la commande modifiée et les ajustements de stock.
+//  anciens : lignes actuelles (items_json) ; demandes : [{ id, opt, qty }] voulues par l'admin
+//  paye : le stock de cette commande a déjà été décompté (statut ≥ « Paiement validé »)
+function preparerModificationCommande({ anciens, demandes, produitParId, stockParId, paye, aujourdhui }) {
+    if (!Array.isArray(demandes)) throw new Error('Articles invalides.');
+    const anciensValides = (Array.isArray(anciens) ? anciens : []).filter(it => it && it.id != null);
+    const anciensParCle = {};
+    anciensValides.forEach(it => { anciensParCle[cleLigneCommande(it.id, it.opt)] = it; });
+
+    const demandesParCle = {};
+    const ordre = [];
+    for (const d of demandes) {
+        const id = Number(d && d.id);
+        const qty = Math.floor(Number(d && d.qty));
+        const opt = d && d.opt != null && d.opt !== '' ? Number(d.opt) : null;
+        if (!id || !Number.isFinite(qty) || qty < 1 || (opt != null && !(Number.isInteger(opt) && opt >= 0))) {
+            throw new Error('Article ou quantité invalide.');
+        }
+        const cle = cleLigneCommande(id, opt);
+        if (!demandesParCle[cle]) { demandesParCle[cle] = { id, opt, qty: 0 }; ordre.push(cle); }
+        demandesParCle[cle].qty += qty;
+    }
+    if (!ordre.length) {
+        throw new Error("Une commande doit garder au moins un article. Pour l'annuler, passe-la au statut « Annulée ».");
+    }
+    if (ordre.some(cle => demandesParCle[cle].qty > QTE_MAX_LIGNE)) {
+        throw new Error(`Quantité maximale par article : ${QTE_MAX_LIGNE}.`);
+    }
+
+    const inchange = ordre.length === Object.keys(anciensParCle).length
+        && ordre.every(cle => anciensParCle[cle] && Number(anciensParCle[cle].qty) === demandesParCle[cle].qty);
+
+    const problemes = [];
+    const items = [];
+    for (const cle of ordre) {
+        const d = demandesParCle[cle];
+        const ancien = anciensParCle[cle];
+        if (ancien) {
+            // ligne déjà dans la commande : on garde le nom, le prix payé et les composants d'origine
+            const ligne = {
+                id: Number(ancien.id),
+                name: ancien.name || (produitParId[ancien.id] && produitParId[ancien.id].name) || `#${ancien.id}`,
+                qty: d.qty,
+                price: ancien.price,
+            };
+            if (ancien.opt != null) { ligne.opt = Number(ancien.opt); ligne.ids = ancien.ids; }
+            items.push(ligne);
+            continue;
+        }
+        // nouvelle ligne : nom, prix et composants calculés par le serveur
+        const produit = produitParId[d.id];
+        if (!produit) { problemes.push(`Produit #${d.id} introuvable`); continue; }
+        const opts = lireOptions(produit.options);
+        let nom = produit.name;
+        let prix = Number(produit.price) || 0;
+        let ids = null;
+        if (d.opt != null) {
+            const option = opts.choix[d.opt];
+            if (!option) { problemes.push(`Option invalide pour « ${produit.name} »`); continue; }
+            nom = `${produit.name} — ${option.label}`;
+            prix = option.price;
+            ids = option.ids.length ? option.ids : [d.id];
+        } else if (opts.choix.length) {
+            problemes.push(`« ${produit.name} » demande de choisir une option`);
+            continue;
+        }
+        if (opts.archived || produit.comingSoon || (opts.endsAt && aujourdhui > opts.endsAt)) {
+            problemes.push(`« ${nom} » n'est plus en vente`);
+            continue;
+        }
+        const ligne = { id: d.id, name: nom, qty: d.qty, price: prix };
+        if (d.opt != null) { ligne.opt = d.opt; ligne.ids = ids; }
+        items.push(ligne);
+    }
+
+    // Ajustement du stock : unités par produit composant, avant / après.
+    const unites = (lignes) => {
+        const m = {};
+        lignes.forEach(it => {
+            const q = Number(it.qty) || 0;
+            composantsLigne(it).forEach(id => { m[id] = (m[id] || 0) + q; });
+        });
+        return m;
+    };
+    const avant = unites(anciensValides);
+    const apres = unites(items);
+    const stockUpdates = [];
+    Object.keys({ ...avant, ...apres }).forEach(k => {
+        const id = Number(k);
+        const delta = (apres[id] || 0) - (avant[id] || 0);
+        if (!delta) return;
+        const qtyStock = stockParId[id];
+        const suivi = typeof qtyStock === 'number';
+        if (delta > 0 && suivi) {
+            const insuffisant = paye ? qtyStock - delta < 0 : qtyStock <= 0;
+            if (insuffisant) {
+                const nom = (produitParId[id] && produitParId[id].name) || `#${id}`;
+                problemes.push(`Stock insuffisant pour « ${nom} » (reste ${qtyStock})`);
+            }
+        }
+        if (paye && suivi) stockUpdates.push({ id, delta });
+    });
+
+    if (problemes.length) throw new Error(problemes.join(' ; '));
+
+    const subtotal = arrondi2(items.reduce((n, it) => n + (Number(it.price) || 0) * it.qty, 0));
+    const itemsSummary = items.map(it => `${it.name} x${it.qty}`).join(', ');
+    return { items, itemsSummary, subtotal, stockUpdates, inchange };
+}
+
+async function adminModifierCommande(env, id, demandes, notifier) {
+    const db = env.DB;
+    const commande = await db.prepare('SELECT * FROM commandes WHERE id = ?').bind(id).first();
+    if (!commande) throw new Error(`Commande id ${id} introuvable.`);
+    if (STATUTS_COMMANDE_MODIFIABLES.indexOf(commande.statut) < 0) {
+        throw new Error(`Une commande « ${commande.statut} » ne peut plus être modifiée.`);
+    }
+    if (commande.facture_numero) {
+        throw new Error('Une facture est déjà émise pour cette commande : elle ne peut plus être modifiée.');
+    }
+
+    let anciens;
+    try { anciens = JSON.parse(commande.items_json || '[]'); } catch { anciens = []; }
+
+    const { results: produitRows } = await db.prepare('SELECT id, name, price, comingSoon, options FROM produits').all();
+    const produitParId = {};
+    produitRows.forEach(r => { produitParId[r.id] = r; });
+    const { results: stockRows } = await db.prepare('SELECT id, qty FROM stock').all();
+    const stockParId = {};
+    stockRows.forEach(r => { stockParId[r.id] = r.qty; });
+
+    const prep = preparerModificationCommande({
+        anciens, demandes, produitParId, stockParId, paye: !!commande.stock_decremented, aujourdhui: dateParis(),
+    });
+    if (prep.inchange) return { commande: commandeFromRow(commande), inchange: true, notifie: false };
+
+    let historique;
+    try { historique = JSON.parse(commande.historique || '[]'); } catch { historique = []; }
+    if (!Array.isArray(historique)) historique = [];
+    historique.push({
+        date: new Date().toISOString(),
+        avant: { articles: commande.items_summary || '', montant: commande.subtotal },
+        apres: { articles: prep.itemsSummary, montant: prep.subtotal },
+    });
+    historique = historique.slice(-20);
+
+    // Une seule transaction : la commande et le stock changent ensemble, ou pas du tout.
+    const instructions = [
+        db.prepare('UPDATE commandes SET items_json = ?, items_summary = ?, subtotal = ?, historique = ? WHERE id = ?')
+            .bind(JSON.stringify(prep.items), prep.itemsSummary, prep.subtotal, JSON.stringify(historique), id),
+        ...prep.stockUpdates.map(u => db.prepare('UPDATE stock SET qty = qty - ? WHERE id = ?').bind(u.delta, u.id)),
+    ];
+    try {
+        await db.batch(instructions);
+    } catch (err) {
+        if (/no such column.*historique/i.test(String(err.message || err))) {
+            throw new Error('Migration D1 manquante : colonne « historique » absente de la table commandes (migrations/0002-commandes-historique.sql).');
+        }
+        throw err;
+    }
+
+    const maj = await db.prepare('SELECT * FROM commandes WHERE id = ?').bind(id).first();
+    let notifie = false;
+    if (notifier && maj && maj.email) {
+        try {
+            await envoyerMailModificationCommande(env, maj, prep.items, prep.subtotal);
+            notifie = true;
+        } catch (err) {
+            console.error('envoyerMailModificationCommande', err);
+        }
+    }
+    return { commande: commandeFromRow(maj), inchange: false, notifie };
+}
+
+const MAILS_MODIFICATION_COMMANDE = {
+    fr: {
+        subject: 'TarotLens — votre commande a été modifiée',
+        message: 'Votre commande a bien été modifiée. Voici son contenu actuel :',
+        articles: 'Total des articles', port: 'Frais de port', total: 'Total',
+    },
+    en: {
+        subject: 'TarotLens — your order has been updated',
+        message: 'Your order has been updated. Here is its current content:',
+        articles: 'Items total', port: 'Shipping', total: 'Total',
+    },
+};
+
+function formaterEurosMail(n, lang) {
+    const txt = arrondi2(Number(n) || 0).toFixed(2);
+    return lang === 'en' ? `€${txt}` : `${txt.replace('.', ',')} €`;
+}
+
+async function envoyerMailModificationCommande(env, commande, items, subtotal) {
+    if (!commande.email) return;
+    const lang = String(commande.lang || '').toLowerCase() === 'en' ? 'en' : 'fr';
+    const texte = MAILS_MODIFICATION_COMMANDE[lang];
+    const i18n = MAIL_I18N[lang];
+    const name = commande.name || '';
+    const port = Number(commande.frais_port) || 0;
+    const lignes = items.map(it => ({ nom: it.name, qty: it.qty, total: (Number(it.price) || 0) * it.qty }));
+    const e = echapperHtmlMail;
+    const eur = (n) => formaterEurosMail(n, lang);
+
+    const totaux = [[texte.articles, subtotal]];
+    if (port > 0) { totaux.push([texte.port, port]); totaux.push([texte.total, subtotal + port]); }
+
+    const plain = [
+        `${i18n.greeting} ${name},`, '', texte.message, '',
+        ...lignes.map(l => `- ${l.nom} x${l.qty} : ${eur(l.total)}`), '',
+        ...totaux.map(([libelle, valeur]) => `${libelle} : ${eur(valeur)}`), '',
+        i18n.signoff, i18n.team,
+    ].join('\n');
+
+    const lignesHtml = lignes.map(l => `<tr><td style="padding:6px 0;font-size:14px;">${e(l.nom)} × ${l.qty}</td>`
+        + `<td style="padding:6px 0;font-size:14px;text-align:right;white-space:nowrap;">${e(eur(l.total))}</td></tr>`).join('');
+    const totauxHtml = totaux.map(([libelle, valeur], i) => `<tr><td style="padding:4px 0;font-size:14px;${i === totaux.length - 1 ? 'font-weight:700;' : ''}">${e(libelle)}</td>`
+        + `<td style="padding:4px 0;font-size:14px;text-align:right;white-space:nowrap;${i === totaux.length - 1 ? 'font-weight:700;' : ''}">${e(eur(valeur))}</td></tr>`).join('');
+    const corps = `<p style="margin:0 0 16px;font-size:16px;">${e(i18n.greeting)} ${e(name)},</p>`
+        + `<p style="margin:0 0 20px;font-size:15px;line-height:1.6;">${e(texte.message)}</p>`
+        + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border-top:1px solid #eee;border-bottom:1px solid #eee;">${lignesHtml}</table>`
+        + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">${totauxHtml}</table>`
+        + `<p style="margin:0;font-size:15px;line-height:1.6;">${e(i18n.signoff)}<br>${e(i18n.team)}</p>`;
+
+    await envoyerEmail(env, {
+        to: commande.email,
+        subject: texte.subject,
+        text: plain,
+        html: mailEnveloppeHtml(corps),
+        replyTo: env.ORDER_NOTIFY_EMAIL,
+    });
+}
+
 async function handleAdmin(action, p, env) {
     const db = env.DB;
     switch (action) {
@@ -375,6 +628,10 @@ async function handleAdmin(action, p, env) {
         case 'adminDeleteCommande':
             await db.prepare('DELETE FROM commandes WHERE id = ?').bind(Number(p.row)).run();
             return { ok: true };
+        case 'adminModifierCommande': {
+            const resultat = await adminModifierCommande(env, Number(p.row), p.items, p.notifier === true);
+            return { ok: true, ...resultat };
+        }
         case 'adminSetFraisPort': {
             const valeur = p.frais_port === '' || p.frais_port == null ? null : Number(p.frais_port);
             if (valeur != null && (isNaN(valeur) || valeur < 0)) throw new Error('Frais de port invalides.');
