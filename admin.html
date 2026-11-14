@@ -236,11 +236,7 @@
                 <button type="button" class="btn btn-ghost sm" id="refreshCommandesBtn">Actualiser</button>
                 <button type="button" class="btn btn-ghost sm" id="exportCsvBtn">Exporter en CSV</button>
                 <button type="button" class="btn btn-ghost sm" id="exportXlsxBtn">Exporter en XLSX</button>
-                <select class="admin-field" id="modeExportRegistre" style="width:auto" title="Mode de calcul du montant exporté vers Mon registre">
-                    <option value="net">Mon registre — encaissement net (hors annulées, port inclus)</option>
-                    <option value="dashboard">Mon registre — comme le CA réel du tableau de bord (annulées incluses, port exclu)</option>
-                </select>
-                <button type="button" class="btn btn-ghost sm" id="exportMonRegistreBtn">Exporter vers Mon registre</button>
+                <button type="button" class="btn btn-ghost sm" id="exportMonRegistreBtn" title="Commandes payées (hors annulées), montant = sous-total + frais de port : le même CA réel que le tableau de bord">Exporter vers Mon registre</button>
             </div>
             <div class="admin-prep" id="prepPanel">
                 <div class="admin-prep-head">
@@ -643,6 +639,15 @@ function switchTab(name) {
 
 const CHANGELOG = [
     {
+        version: 'v3.15', date: '14/11/2026', titre: 'Chiffre d\'affaires recalé sur la règle',
+        items: [
+            'Tableau de bord : le montant d\'une commande est désormais le sous-total + les frais de port (les frais de port n\'étaient pas comptés jusqu\'ici)',
+            'CA total = toutes les commandes passées, hors annulées ; CA réel = commandes payées uniquement (Paiement validé, En préparation, Expédié)',
+            'Une commande payée puis annulée ne compte plus dans le CA réel (elle y restait jusqu\'ici alors qu\'elle n\'était pas dans le CA total)',
+            'Export « Mon registre » : une seule définition (commandes payées hors annulées, sous-total + port), identique au CA réel du tableau de bord ; le sélecteur de mode a disparu',
+        ],
+    },
+    {
         version: 'v3.14', date: '11/11/2026', titre: 'Modifier les articles d\'une commande',
         items: [
             'Onglet Commandes : bouton « Modifier » sur les commandes non expédiées (reçue, paiement validé, en préparation) pour ajouter ou retirer un article, ou changer une quantité, sans annuler ni refaire la commande',
@@ -919,6 +924,21 @@ document.querySelectorAll('.admin-periode-btn').forEach(b => b.addEventListener(
     renderVentesParProduit();
 }));
 
+// Règles du chiffre d'affaires (Romain, 14/11/2026) :
+//   - montant d'une commande = sous-total + frais de port ;
+//   - CA TOTAL = toutes les commandes passées, hors annulées ;
+//   - CA RÉEL  = commandes payées uniquement (Paiement validé et au-delà), hors annulées.
+// Une seule définition, partagée par le tableau de bord et l'export « Mon registre ».
+const STATUTS_ENCAISSES = ['Paiement validé', 'En préparation', 'Expédié'];
+function montantCommande(c) { return (parseFloat(c.subtotal) || 0) + (parseFloat(c.frais_port) || 0); }
+function commandePayee(c) { return c.statut !== 'Annulée' && !!(c.paye || STATUTS_ENCAISSES.includes(c.statut)); }
+function arrondi2(n) { return Math.round(n * 100) / 100; }
+function calculerCA(commandes) {
+    const caTotal = commandes.filter(c => c.statut !== 'Annulée').reduce((s, c) => s + montantCommande(c), 0);
+    const caReel = commandes.filter(commandePayee).reduce((s, c) => s + montantCommande(c), 0);
+    return { caTotal: arrondi2(caTotal), caReel: arrondi2(caReel) };
+}
+
 async function chargerDashboard() {
     document.getElementById('dashboardStats').innerHTML = '<div class="admin-stat-card">Chargement…</div>';
     const repCommandes = await api('adminListCommandes');
@@ -931,11 +951,7 @@ async function chargerDashboard() {
     const stockParId = {};
     (repStock.ok ? repStock.stock : []).forEach(s => { stockParId[s.id] = s.qty; });
 
-    const actives = commandes.filter(c => c.statut !== 'Annulée');
-    const caTotal = actives.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
-    const STATUTS_ENCAISSES = ['Paiement validé', 'En préparation', 'Expédié'];
-    const payees = commandes.filter(c => c.paye || STATUTS_ENCAISSES.includes(c.statut));
-    const caReel = payees.reduce((s, c) => s + (parseFloat(c.subtotal) || 0), 0);
+    const { caTotal, caReel } = calculerCA(commandes);
     const nouvelles = commandes.filter(c => c.statut === 'Commande reçue').length;
 
     document.getElementById('dashboardStats').innerHTML = `
@@ -1454,39 +1470,21 @@ document.getElementById('exportXlsxBtn').addEventListener('click', () => {
 // Format d'import de "Mon registre" (livre de recettes auto-entrepreneur, giocane.app) :
 // { ecritures: [{ date: "AAAA-MM-JJ", designation, montant: nombre, reglement }, ...] }
 // Mon registre est un livre de recettes, pas un suivi de commandes : une commande non
-// payee n'y a pas sa place. Deux definitions possibles de "commande payee", au choix
-// via le select #modeExportRegistre (memorise en localStorage) :
-//   - "net"       : exclut les commandes annulees meme si payees au prealable, et
-//                   compte subtotal + frais_port (encaissement reellement recu).
-//                   Recommande pour un livre de recettes fiscal.
-//   - "dashboard" : reproduit exactement le calcul du "CA reel" affiche sur le
-//                   tableau de bord (voir plus haut : STATUTS_ENCAISSES / caReel) --
-//                   inclut les commandes payees puis annulees, ne compte que subtotal.
-const MODE_EXPORT_REGISTRE_KEY = 'tarotlens_mode_export_registre';
-const modeExportRegistreSelect = document.getElementById('modeExportRegistre');
-modeExportRegistreSelect.value = localStorage.getItem(MODE_EXPORT_REGISTRE_KEY) || 'net';
-modeExportRegistreSelect.addEventListener('change', () => {
-    localStorage.setItem(MODE_EXPORT_REGISTRE_KEY, modeExportRegistreSelect.value);
-});
-
+// payee n'y a pas sa place : on exporte les commandes payees (commandePayee), hors
+// annulees, avec le montant sous-total + frais de port (montantCommande). C'est
+// exactement le "CA reel" du tableau de bord (calculerCA) : le total exporte lui est egal.
+// (Avant v3.15, un 2e mode « comme le tableau de bord » comptait les annulees payees et
+// excluait le port ; supprime pour qu'il n'y ait plus qu'une seule definition du CA.)
 document.getElementById('exportMonRegistreBtn').addEventListener('click', () => {
-    const STATUTS_ENCAISSES_EXPORT = ['Paiement validé', 'En préparation', 'Expédié'];
-    const mode = modeExportRegistreSelect.value;
-    const encaissees = mode === 'dashboard'
-        ? commandesCache.filter(c => c.paye || STATUTS_ENCAISSES_EXPORT.includes(c.statut))
-        : commandesCache.filter(c => c.paye && c.statut !== 'Annulée');
+    const mode = 'net'; // valeur conservee dans le fichier : meme format que l'export par defaut d'avant
+    const encaissees = commandesCache.filter(commandePayee);
     if (!encaissees.length) { toast('Aucune commande encaissée à exporter.', true); return; }
-    const ecritures = encaissees.map(c => {
-        const montant = mode === 'dashboard'
-            ? (parseFloat(c.subtotal) || 0)
-            : (parseFloat(c.subtotal) || 0) + (parseFloat(c.frais_port) || 0);
-        return {
-            date: String(c.date).slice(0, 10),
-            designation: ('TarotLens — ' + (c.items || 'Commande')).slice(0, 140),
-            montant: Math.round(montant * 100) / 100,
-            reglement: 'Autre'
-        };
-    });
+    const ecritures = encaissees.map(c => ({
+        date: String(c.date).slice(0, 10),
+        designation: ('TarotLens — ' + (c.items || 'Commande')).slice(0, 140),
+        montant: arrondi2(montantCommande(c)),
+        reglement: 'Autre'
+    }));
     const sauvegarde = { source: 'TarotLens', mode, exporteLe: new Date().toISOString(), ecritures };
     const blob = new Blob([JSON.stringify(sauvegarde, null, 2)], { type: 'application/json;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1494,7 +1492,8 @@ document.getElementById('exportMonRegistreBtn').addEventListener('click', () => 
     a.href = url; a.download = 'tarotlens-vers-mon-registre.json';
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    toast(ecritures.length + ' commande(s) exportée(s) (mode "' + (mode === 'dashboard' ? 'CA réel tableau de bord' : 'encaissement net') + '"). Mode de règlement à vérifier manuellement dans Mon registre (non suivi côté TarotLens).');
+    const totalExporte = arrondi2(ecritures.reduce((s, e) => s + e.montant, 0));
+    toast(ecritures.length + ' commande(s) payée(s) exportée(s), total ' + totalExporte.toFixed(2) + ' € (sous-total + frais de port, hors annulées). Mode de règlement à vérifier manuellement dans Mon registre (non suivi côté TarotLens).');
 });
 
 
