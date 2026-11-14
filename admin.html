@@ -639,6 +639,12 @@ function switchTab(name) {
 
 const CHANGELOG = [
     {
+        version: 'v3.16', date: '14/11/2026', titre: 'Total des frais de port au tableau de bord',
+        items: [
+            'Tableau de bord : nouvelle carte « Total frais de port » à côté du CA total, avec le même périmètre (toutes les commandes passées, hors annulées) : c\'est la part « port » comprise dans le CA total',
+        ],
+    },
+    {
         version: 'v3.15', date: '14/11/2026', titre: 'Chiffre d\'affaires recalé sur la règle',
         items: [
             'Tableau de bord : le montant d\'une commande est désormais le sous-total + les frais de port (les frais de port n\'étaient pas comptés jusqu\'ici)',
@@ -930,13 +936,18 @@ document.querySelectorAll('.admin-periode-btn').forEach(b => b.addEventListener(
 //   - CA RÉEL  = commandes payées uniquement (Paiement validé et au-delà), hors annulées.
 // Une seule définition, partagée par le tableau de bord et l'export « Mon registre ».
 const STATUTS_ENCAISSES = ['Paiement validé', 'En préparation', 'Expédié'];
-function montantCommande(c) { return (parseFloat(c.subtotal) || 0) + (parseFloat(c.frais_port) || 0); }
+function fraisPortCommande(c) { return parseFloat(c.frais_port) || 0; }
+function montantCommande(c) { return (parseFloat(c.subtotal) || 0) + fraisPortCommande(c); }
 function commandePayee(c) { return c.statut !== 'Annulée' && !!(c.paye || STATUTS_ENCAISSES.includes(c.statut)); }
 function arrondi2(n) { return Math.round(n * 100) / 100; }
+// fraisPort = total des frais de port des commandes comptées dans le CA total (hors annulées) :
+// c'est la part « port » du CA total, donc CA total - fraisPort = ventes hors port.
 function calculerCA(commandes) {
-    const caTotal = commandes.filter(c => c.statut !== 'Annulée').reduce((s, c) => s + montantCommande(c), 0);
+    const actives = commandes.filter(c => c.statut !== 'Annulée');
+    const caTotal = actives.reduce((s, c) => s + montantCommande(c), 0);
     const caReel = commandes.filter(commandePayee).reduce((s, c) => s + montantCommande(c), 0);
-    return { caTotal: arrondi2(caTotal), caReel: arrondi2(caReel) };
+    const fraisPort = actives.reduce((s, c) => s + fraisPortCommande(c), 0);
+    return { caTotal: arrondi2(caTotal), caReel: arrondi2(caReel), fraisPort: arrondi2(fraisPort) };
 }
 
 async function chargerDashboard() {
@@ -951,11 +962,12 @@ async function chargerDashboard() {
     const stockParId = {};
     (repStock.ok ? repStock.stock : []).forEach(s => { stockParId[s.id] = s.qty; });
 
-    const { caTotal, caReel } = calculerCA(commandes);
+    const { caTotal, caReel, fraisPort } = calculerCA(commandes);
     const nouvelles = commandes.filter(c => c.statut === 'Commande reçue').length;
 
     document.getElementById('dashboardStats').innerHTML = `
         <div class="admin-stat-card"><div class="admin-stat-value">${caTotal.toFixed(2)} €</div><div class="admin-stat-label">CA total (hors annulées)</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${fraisPort.toFixed(2)} €</div><div class="admin-stat-label">Total frais de port (hors annulées)</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${caReel.toFixed(2)} €</div><div class="admin-stat-label">CA réel (paiement validé)</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${commandes.length}</div><div class="admin-stat-label">Commandes totales</div></div>
         <div class="admin-stat-card"><div class="admin-stat-value">${nouvelles}</div><div class="admin-stat-label">À traiter</div></div>
