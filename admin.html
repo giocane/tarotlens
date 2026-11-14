@@ -20,6 +20,9 @@
         .admin-wrap:has(#tab-commandes.active) { max-width: 1440px; }
         .admin-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
         .admin-title { font-family: var(--font-display); font-size: clamp(32px,5vw,48px); color: var(--orange); text-transform: uppercase; line-height: .9; }
+        .admin-brand { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .admin-brand-section { font-family: var(--font-display); font-size: 20px; letter-spacing: .5px; text-transform: uppercase; text-decoration: none; color: var(--ink); opacity: .6; padding-left: 14px; border-left: 2px solid rgba(26,22,20,.2); line-height: 1; }
+        .admin-brand-section:hover, .admin-brand-section:focus-visible { opacity: 1; color: var(--orange); }
         .admin-logout { background: none; border: 2px solid rgba(26,22,20,.15); border-radius: 980px; padding: 8px 18px; font-family: var(--font-body); font-weight: 600; font-size: 13px; cursor: pointer; }
         .admin-logout:hover { background: var(--ink); color: var(--cream); border-color: var(--ink); }
 
@@ -164,7 +167,10 @@
 
 <div class="admin-wrap">
     <div class="admin-header">
-        <a href="index.html" class="nav-logo" style="color:var(--orange);text-decoration:none;">TAROTLENS</a>
+        <div class="admin-brand">
+            <a href="index.html" class="nav-logo" style="color:var(--orange);text-decoration:none;">TAROTLENS</a>
+            <a href="#tab-dashboard" class="admin-brand-section" id="headerAdminLink" title="Retour au tableau de bord">Administration</a>
+        </div>
     </div>
 
     <div class="admin-login-box" id="admin-login">
@@ -177,8 +183,7 @@
     </div>
 
     <div id="admin-app" style="display:none">
-        <div class="admin-panel-head">
-            <h1 class="admin-title">Administration</h1>
+        <div class="admin-panel-head" style="justify-content:flex-end">
             <button type="button" class="admin-logout" id="logoutBtn">Se déconnecter</button>
         </div>
 
@@ -621,6 +626,14 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     location.reload();
 });
 
+// « Administration » dans l'en-tête : ramène au tableau de bord (et en haut de la page) depuis n'importe quel onglet.
+document.getElementById('headerAdminLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (document.getElementById('admin-app').style.display === 'none') return; // pas encore connecté
+    switchTab('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
 const cleExistante = getCle();
 if (cleExistante) tenterConnexion(cleExistante, true);
 
@@ -638,6 +651,13 @@ function switchTab(name) {
 }
 
 const CHANGELOG = [
+    {
+        version: 'v3.17', date: '14/11/2026', titre: 'Retour rapide au tableau de bord',
+        items: [
+            'En-tête : « Administration » est affiché à côté de TAROTLENS ; un clic dessus ramène au tableau de bord (et en haut de la page) depuis n\'importe quel onglet',
+            'Le grand titre « Administration » du panneau a été retiré, il faisait doublon avec l\'en-tête',
+        ],
+    },
     {
         version: 'v3.16', date: '14/11/2026', titre: 'Total des frais de port au tableau de bord',
         items: [
