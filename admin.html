@@ -171,6 +171,7 @@
             <a href="index.html" class="nav-logo" style="color:var(--orange);text-decoration:none;">TAROTLENS</a>
             <a href="#tab-dashboard" class="admin-brand-section" id="headerAdminLink" title="Retour au tableau de bord">Administration</a>
         </div>
+        <button type="button" class="admin-logout" id="logoutBtn" hidden>Se déconnecter</button>
     </div>
 
     <div class="admin-login-box" id="admin-login">
@@ -183,10 +184,6 @@
     </div>
 
     <div id="admin-app" style="display:none">
-        <div class="admin-panel-head" style="justify-content:flex-end">
-            <button type="button" class="admin-logout" id="logoutBtn">Se déconnecter</button>
-        </div>
-
         <div class="admin-tabs">
             <button type="button" class="admin-tab-btn" data-tab="dashboard">Tableau de bord</button>
             <button type="button" class="admin-tab-btn" data-tab="commandes" style="position:relative">Commandes<span class="admin-tab-badge" id="badgeCommandes" hidden></span></button>
@@ -606,6 +603,7 @@ async function tenterConnexion(cle, silencieux) {
     if (rep.ok) {
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-app').style.display = 'block';
+        document.getElementById('logoutBtn').hidden = false; // le bouton vit dans l'en-tête, visible seulement une fois connecté
         switchTab('dashboard');
     } else if (!silencieux) {
         effacerCle();
@@ -656,6 +654,7 @@ const CHANGELOG = [
         items: [
             'En-tête : « Administration » est affiché à côté de TAROTLENS ; un clic dessus ramène au tableau de bord (et en haut de la page) depuis n\'importe quel onglet',
             'Le grand titre « Administration » du panneau a été retiré, il faisait doublon avec l\'en-tête',
+            'Le bouton « Se déconnecter » est aligné sur la ligne de l\'en-tête, à droite (visible une fois connecté)',
         ],
     },
     {
